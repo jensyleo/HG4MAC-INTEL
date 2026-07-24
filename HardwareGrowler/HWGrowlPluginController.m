@@ -57,13 +57,13 @@
 		[pluginBundles enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
 			NSString *bundlePath = [pluginsPath stringByAppendingPathComponent:obj];
 			NSBundle *pluginBundle = [NSBundle bundleWithPath:bundlePath];
-			
+
 			if(pluginBundle && [pluginBundle load])
 			{
 				NSString *bundleID = [pluginBundle bundleIdentifier];
 				id plugin = [[[pluginBundle principalClass] alloc] init];
 				if(plugin)
-				{ 
+				{
 					if([plugin conformsToProtocol:@protocol(HWGrowlPluginProtocol)])
 					{
 						[plugin setDelegate:self];
@@ -72,15 +72,22 @@
 							disabled = [[disabledPlugins objectForKey:bundleID] boolValue];
 						else if([plugin respondsToSelector:@selector(enabledByDefault)])
 							disabled = ![plugin enabledByDefault];
-						
-						NSMutableDictionary *pluginDict = [NSMutableDictionary dictionaryWithObjectsAndKeys:plugin, @"plugin", 
+
+						NSMutableDictionary *pluginDict = [NSMutableDictionary dictionaryWithObjectsAndKeys:plugin, @"plugin",
 																	  [NSNumber numberWithBool:disabled], @"disabled", nil];
-						[blockSelf.plugins addObject:pluginDict];
-						
-						if([plugin conformsToProtocol:@protocol(HWGrowlPluginNotifierProtocol)])
-							[blockSelf.notifiers addObject:plugin];
-						if([plugin conformsToProtocol:@protocol(HWGrowlPluginMonitorProtocol)])
-							[blockSelf.monitors addObject:plugin];
+						// @synchronized(self): loadPlugins runs once at init (main thread), but
+						// notifyWithName:...: below enumerates these same arrays and can in
+						// principle be reached from a monitor's own callback thread — guard
+						// every touch of plugins/notifiers/monitors with the same lock so a
+						// mutation here can never race a concurrent enumeration there.
+						@synchronized(blockSelf) {
+							[blockSelf.plugins addObject:pluginDict];
+
+							if([plugin conformsToProtocol:@protocol(HWGrowlPluginNotifierProtocol)])
+								[blockSelf.notifiers addObject:plugin];
+							if([plugin conformsToProtocol:@protocol(HWGrowlPluginMonitorProtocol)])
+								[blockSelf.monitors addObject:plugin];
+						}
 					}else{
 						NSLog(@"%@ does not conform to HWGrowlPluginProtocol", NSStringFromClass([pluginBundle principalClass]));
 					}
@@ -93,20 +100,26 @@
 			}
 		}];
 	}
-	[plugins sortUsingComparator:^NSComparisonResult(id obj1, id obj2) {
-		return [[[obj1 objectForKey:@"plugin"] pluginDisplayName] compare:[[obj2 objectForKey:@"plugin"] pluginDisplayName]];
-	}];
+	@synchronized(self) {
+		[plugins sortUsingComparator:^NSComparisonResult(id obj1, id obj2) {
+			return [[[obj1 objectForKey:@"plugin"] pluginDisplayName] compare:[[obj2 objectForKey:@"plugin"] pluginDisplayName]];
+		}];
+	}
 }
 			
 -(void)postRegistrationInit {
-	[plugins enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+	NSArray *pluginsSnapshot;
+	@synchronized(self) { pluginsSnapshot = [plugins copy]; }
+	[pluginsSnapshot enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
 		if([[obj objectForKey:@"plugin"] respondsToSelector:@selector(postRegistrationInit)])
 			[[obj objectForKey:@"plugin"] postRegistrationInit];
 	}];
 }
 
 -(void)fireOnLaunchNotes {
-	[notifiers enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+	NSArray *notifiersSnapshot;
+	@synchronized(self) { notifiersSnapshot = [notifiers copy]; }
+	[notifiersSnapshot enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
 		if([obj respondsToSelector:@selector(fireOnLaunchNotes)])
 			[obj fireOnLaunchNotes];
 	}];
@@ -121,13 +134,15 @@
 					plugin:(id)plugin
 {
 	__block BOOL disabled = NO;
-	[plugins enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-		if([obj objectForKey:@"plugin"] == plugin)
-		{
-			disabled = [[obj objectForKey:@"disabled"] boolValue];
-			*stop = YES;
-		}
-	}];
+	@synchronized(self) {
+		[plugins enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+			if([obj objectForKey:@"plugin"] == plugin)
+			{
+				disabled = [[obj objectForKey:@"disabled"] boolValue];
+				*stop = YES;
+			}
+		}];
+	}
 	if(disabled)
 		return;
 
@@ -261,13 +276,15 @@
 
 -(BOOL)pluginDisabled:(id)plugin {
 	__block BOOL disabled = NO;
-	[plugins enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-		if([obj objectForKey:@"plugin"] == plugin) 
-		{
-			disabled = [[obj objectForKey:@"disabled"] boolValue];
-			*stop = YES;
-		}
-	}];
+	@synchronized(self) {
+		[plugins enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+			if([obj objectForKey:@"plugin"] == plugin)
+			{
+				disabled = [[obj objectForKey:@"disabled"] boolValue];
+				*stop = YES;
+			}
+		}];
+	}
 	return disabled;
 }
 
@@ -278,7 +295,9 @@
 	NSString *classString = [components objectAtIndex:0];
 	NSString *context = [components objectAtIndex:1];
 	
-	[notifiers enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+	NSArray *notifiersSnapshot;
+	@synchronized(self) { notifiersSnapshot = [notifiers copy]; }
+	[notifiersSnapshot enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
 		if([obj isKindOfClass:NSClassFromString(classString)]){
 			if([obj respondsToSelector:@selector(noteClosed:byClick:)])
 				[obj noteClosed:context byClick:click];
@@ -295,7 +314,9 @@
 	NSMutableDictionary *descriptions = [NSMutableDictionary dictionary];
 	NSMutableDictionary *localizedNames = [NSMutableDictionary dictionary];
 	
-	[notifiers enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+	NSArray *notifiersSnapshot;
+	@synchronized(self) { notifiersSnapshot = [notifiers copy]; }
+	[notifiersSnapshot enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
 		id<HWGrowlPluginNotifierProtocol> notifier = obj;
 		[allNotes addObjectsFromArray:[notifier noteNames]];
 		if([notifier defaultNotifications])
