@@ -60,6 +60,14 @@ static BOOL HWGAudioBoolForKey(NSString *key, BOOL def) {
 @property (nonatomic, assign) AudioDeviceID lastDefaultOutputID;
 @property (nonatomic, assign) AudioDeviceID lastDefaultInputID;
 
+// AudioObjectRemovePropertyListenerBlock identifies which listener to remove by comparing
+// the exact block pointer passed to AudioObjectAddPropertyListenerBlock — passing a
+// different block (or nil) is a silent no-op, leaving the original listener registered
+// forever. These must be the SAME block references used at registration time.
+@property (nonatomic, copy) AudioObjectPropertyListenerBlock devicesListenerBlock;
+@property (nonatomic, copy) AudioObjectPropertyListenerBlock defaultOutputListenerBlock;
+@property (nonatomic, copy) AudioObjectPropertyListenerBlock defaultInputListenerBlock;
+
 @end
 
 // C callback trampolines — CoreAudio's AudioObjectPropertyListenerBlock already gives us a
@@ -75,6 +83,9 @@ static BOOL HWGAudioBoolForKey(NSString *key, BOOL def) {
 @synthesize reportedDeviceIDs;
 @synthesize lastDefaultOutputID;
 @synthesize lastDefaultInputID;
+@synthesize devicesListenerBlock;
+@synthesize defaultOutputListenerBlock;
+@synthesize defaultInputListenerBlock;
 
 static AudioObjectPropertyAddress kDevicesAddress = {
 	kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain
@@ -100,26 +111,30 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		lastDefaultInputID = [self currentDefaultDeviceForAddress:&kDefaultInputAddress];
 
 		__weak typeof(self) weakSelf = self;
-		AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &kDevicesAddress, dispatch_get_main_queue(), ^(UInt32 n, const AudioObjectPropertyAddress *addrs) {
+		self.devicesListenerBlock = ^(UInt32 n, const AudioObjectPropertyAddress *addrs) {
 			(void)n; (void)addrs;
 			[weakSelf snapshotDevicesUpdatingKnownState:NO];
-		});
-		AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &kDefaultOutputAddress, dispatch_get_main_queue(), ^(UInt32 n, const AudioObjectPropertyAddress *addrs) {
+		};
+		self.defaultOutputListenerBlock = ^(UInt32 n, const AudioObjectPropertyAddress *addrs) {
 			(void)n; (void)addrs;
 			[weakSelf defaultOutputChanged];
-		});
-		AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &kDefaultInputAddress, dispatch_get_main_queue(), ^(UInt32 n, const AudioObjectPropertyAddress *addrs) {
+		};
+		self.defaultInputListenerBlock = ^(UInt32 n, const AudioObjectPropertyAddress *addrs) {
 			(void)n; (void)addrs;
 			[weakSelf defaultInputChanged];
-		});
+		};
+
+		AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &kDevicesAddress, dispatch_get_main_queue(), self.devicesListenerBlock);
+		AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &kDefaultOutputAddress, dispatch_get_main_queue(), self.defaultOutputListenerBlock);
+		AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &kDefaultInputAddress, dispatch_get_main_queue(), self.defaultInputListenerBlock);
 	}
 	return self;
 }
 
 -(void)dealloc {
-	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDevicesAddress, dispatch_get_main_queue(), nil);
-	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDefaultOutputAddress, dispatch_get_main_queue(), nil);
-	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDefaultInputAddress, dispatch_get_main_queue(), nil);
+	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDevicesAddress, dispatch_get_main_queue(), devicesListenerBlock);
+	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDefaultOutputAddress, dispatch_get_main_queue(), defaultOutputListenerBlock);
+	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDefaultInputAddress, dispatch_get_main_queue(), defaultInputListenerBlock);
 }
 
 #pragma mark CoreAudio helpers

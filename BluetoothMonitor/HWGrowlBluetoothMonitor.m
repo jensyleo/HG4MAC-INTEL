@@ -32,6 +32,14 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 // must own it.
 @property (nonatomic, strong) IOBluetoothUserNotification *connectionNotification;
 
+// Per-device disconnect notifications, keyed by address string. Nothing else holds a
+// strong reference to the object `registerForDisconnectNotification:selector:` returns —
+// without retaining it here, ARC is free to deallocate it before the disconnect ever
+// fires, silently dropping that device's disconnect notification. Cleared (with
+// -unregister) both when the disconnect actually fires and in -dealloc, for any device
+// still connected when the monitor itself goes away.
+@property (nonatomic, strong) NSMutableDictionary<NSString *, IOBluetoothUserNotification *> *disconnectNotifications;
+
 @end
 
 @implementation HWGrowlBluetoothMonitor
@@ -40,9 +48,13 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 @synthesize starting;
 @synthesize connectionNotification;
 @synthesize prefsView;
+@synthesize disconnectNotifications;
 
 -(void)dealloc {
 	[connectionNotification unregister];
+	for (IOBluetoothUserNotification *note in disconnectNotifications.allValues) {
+		[note unregister];
+	}
 	// ARC handles the release; no [super dealloc].
 }
 
@@ -50,6 +62,9 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	// Legacy 10.7-10.7.2 incompatibility check removed: the app's deployment
 	// target is 13.0, so that range is unreachable.
 	self = [super init];
+	if (self) {
+		disconnectNotifications = [NSMutableDictionary dictionary];
+	}
 	return self;
 }
 
@@ -151,13 +166,17 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	// disconnecting device's properties are less reliably available by the time this fires.
 	[self bluetoothName:[device name] connected:NO extraInfo:nil];
 	[note unregister];
-
+	NSString *address = [device addressString];
+	if (address) [disconnectNotifications removeObjectForKey:address];
 }
 
 -(void)bluetoothConnection:(IOBluetoothUserNotification*)note
 						  device:(IOBluetoothDevice*)device
 {
-	[device registerForDisconnectNotification:self selector:@selector(bluetoothDisconnection:device:)];
+	IOBluetoothUserNotification *disconnectNote = [device registerForDisconnectNotification:self
+																				  selector:@selector(bluetoothDisconnection:device:)];
+	NSString *address = [device addressString];
+	if (disconnectNote && address) disconnectNotifications[address] = disconnectNote;
 
 	if (!starting || [delegate onLaunchEnabled]) {
 		if (starting) {
@@ -173,8 +192,9 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 			// this, since by then the app has been running for a while.
 			NSString *name = [device name];
 			NSString *extraInfo = [self bluetoothExtraInfoForDevice:device];
+			__weak typeof(self) weakSelf = self;
 			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-				[self bluetoothName:name connected:YES extraInfo:extraInfo];
+				[weakSelf bluetoothName:name connected:YES extraInfo:extraInfo];
 			});
 		} else {
 			[self bluetoothName:[device name] connected:YES extraInfo:[self bluetoothExtraInfoForDevice:device]];

@@ -407,16 +407,27 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 			(void)granted; (void)error;
 		}];
 
-	// 2. Bluetooth — iniciarlo provoca el diálogo de permiso del sistema
+	// 2. Bluetooth — iniciarlo provoca el diálogo de permiso del sistema. Con delegate:nil,
+	// CBCentralManager no está garantizado a invocar -centralManagerDidUpdateState:
+	// internamente, del cual depende buena parte de su comportamiento de arranque/permiso —
+	// por eso AppDelegate es su propio delegate en vez de nil.
 	dispatch_async(dispatch_get_main_queue(), ^{
-		CBCentralManager *cbManager = [[CBCentralManager alloc]
-			initWithDelegate:nil queue:nil
+		self.permissionRequestBluetoothManager = [[CBCentralManager alloc]
+			initWithDelegate:self queue:nil
 			options:@{CBCentralManagerOptionShowPowerAlertKey: @NO}];
-		// Retener brevemente para que el sistema procese el permiso
+		// Retener unos segundos para que el sistema procese el permiso, luego soltar.
 		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-			(void)cbManager; // liberar
+			self.permissionRequestBluetoothManager = nil;
 		});
 	});
+}
+
+#pragma mark CBCentralManagerDelegate
+
+// No-op: this manager exists only to trigger the system Bluetooth permission prompt in
+// -requestAllPermissions above; BluetoothMonitor (IOBluetooth-based) is what actually
+// observes device state.
+- (void)centralManagerDidUpdateState:(CBCentralManager *)central {
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification

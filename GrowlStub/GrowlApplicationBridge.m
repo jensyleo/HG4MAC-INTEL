@@ -468,7 +468,12 @@ static void showBannerWindow(NSString *title, NSString *body, id clickContext, N
     [[UNUserNotificationCenter currentNotificationCenter]
         requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
         completionHandler:^(BOOL granted, NSError *error) {
-            _useCustomBanner = !granted;
+            // Apple does not guarantee this completion handler runs on the main thread, but
+            // every read of _useCustomBanner (in -notifyWithTitle:...) happens on main —
+            // writing it from an arbitrary thread with no synchronization is a real data race.
+            dispatch_async(dispatch_get_main_queue(), ^{
+                _useCustomBanner = !granted;
+            });
         }];
 }
 
@@ -483,21 +488,27 @@ static void showBannerWindow(NSString *title, NSString *body, id clickContext, N
            clickContext:(id)clickContext
              identifier:(NSString *)identifier
 {
-    if (!_useCustomBanner) {
-        UNMutableNotificationContent *content = [UNMutableNotificationContent new];
-        content.title = title ?: @"HG4MAC";
-        content.body  = description ?: @"";
-        NSString *reqID = identifier ?: [[NSUUID UUID] UUIDString];
-        UNNotificationRequest *req = [UNNotificationRequest
-            requestWithIdentifier:reqID content:content trigger:nil];
-        [[UNUserNotificationCenter currentNotificationCenter]
-            addNotificationRequest:req
-             withCompletionHandler:^(NSError *err) {
-                if (err) showBannerWindow(title, description, clickContext, iconData);
-            }];
-    } else {
-        showBannerWindow(title, description, clickContext, iconData);
-    }
+    // Hardware monitors can call this from IOKit/CoreAudio/CoreBluetooth callback threads —
+    // force everything onto main up front (matching showBannerWindow's own internal
+    // dispatch_async) so _useCustomBanner is read on the same queue it's written on, and
+    // UNUserNotificationCenter/AppKit calls below always happen on a consistent thread.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (!_useCustomBanner) {
+            UNMutableNotificationContent *content = [UNMutableNotificationContent new];
+            content.title = title ?: @"HG4MAC";
+            content.body  = description ?: @"";
+            NSString *reqID = identifier ?: [[NSUUID UUID] UUIDString];
+            UNNotificationRequest *req = [UNNotificationRequest
+                requestWithIdentifier:reqID content:content trigger:nil];
+            [[UNUserNotificationCenter currentNotificationCenter]
+                addNotificationRequest:req
+                 withCompletionHandler:^(NSError *err) {
+                    if (err) showBannerWindow(title, description, clickContext, iconData);
+                }];
+        } else {
+            showBannerWindow(title, description, clickContext, iconData);
+        }
+    });
 }
 
 @end

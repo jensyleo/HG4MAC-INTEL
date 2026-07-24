@@ -8,6 +8,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import <UserNotifications/UserNotifications.h>
+#import <CoreBluetooth/CoreBluetooth.h>
 
 @class GrowlOnSwitch, HWGrowlPluginController;
 
@@ -18,7 +19,7 @@ typedef enum : NSInteger {
 	kDontShowIcon = 3
 } HWGrowlIconState;
 
-@interface AppDelegate : NSObject <NSApplicationDelegate, NSToolbarDelegate, NSTableViewDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate> {
+@interface AppDelegate : NSObject <NSApplicationDelegate, NSToolbarDelegate, NSTableViewDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate, CBCentralManagerDelegate> {
 	// Only ivars WITHOUT a @property live here; the rest are synthesized with the
 	// correct ARC ownership from the @property declarations below.
 	NSStatusItem *statusItem;          // strong (we create/own it); set to nil to release
@@ -79,6 +80,12 @@ typedef enum : NSInteger {
 // so we must own it or it would dealloc (we add it back later).
 @property (nonatomic, strong) IBOutlet NSView *placeholderView;
 @property (nonatomic, weak) IBOutlet NSView *currentView;
+
+// Kept strong for the brief permission-request window in -requestAllPermissions. A
+// CBCentralManager with delegate:nil never reliably calls
+// -centralManagerDidUpdateState: internally, so its power-alert/permission prompt isn't
+// guaranteed to fire — this app IS its own delegate instead.
+@property (nonatomic, strong) CBCentralManager *permissionRequestBluetoothManager;
 
 - (void)setStartAtLogin:(BOOL)enabled;
 - (BOOL)isRegisteredAtLogin;
