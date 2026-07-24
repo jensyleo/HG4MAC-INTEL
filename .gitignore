@@ -1,0 +1,40 @@
+# Build artifacts
+Build/
+build/
+DerivedData/
+*.o
+*.lo
+*.la
+*.hmap
+*.dia
+
+# Xcode user-specific state
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Swift Package Manager / dependencies
+.build/
+Carthage/Build/
+Pods/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Editor / misc
+*.swp
+*~
+
+# Local-only pending-tasks list (never published — see todo-tracking policy)
+TODO.md

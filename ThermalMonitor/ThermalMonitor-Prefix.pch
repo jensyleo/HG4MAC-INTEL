@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'ThermalMonitor' target in the 'ThermalMonitor' project
+//
+
+#ifdef __OBJC__
+	#import <Cocoa/Cocoa.h>
+#endif

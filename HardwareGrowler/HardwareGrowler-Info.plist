@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>${EXECUTABLE_NAME}</string>
+	<key>CFBundleIconFile</key>
+	<string>HWGrowler</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.jensyleo.hg4mac</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>${PRODUCT_NAME}</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(HWG_VERSION)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(HWG_VERSION)</string>
+	<key>LSAppNapIsDisabled</key>
+	<true/>
+	<key>LSMultipleInstancesProhibited</key>
+	<true/>
+	<key>LSMinimumSystemVersion</key>
+	<string>${MACOSX_DEPLOYMENT_TARGET}</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>HardwareGrowler monitors Bluetooth device connections and disconnections.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>HardwareGrowler monitors Bluetooth device connections and disconnections.</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>${COPYRIGHT}</string>
+	<key>NSLocationUsageDescription</key>
+	<string>HardwareGrowler uses your location only to read the name (SSID) of the Wi-Fi network you connect to, so it can show it in notifications. Your location is never stored or shared.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>HardwareGrowler uses your location only to read the name (SSID) of the Wi-Fi network you connect to, so it can show it in notifications. Your location is never stored or shared.</string>
+	<key>NSMainNibFile</key>
+	<string>MainMenu</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.item</string>
+				<string>public.composite-content</string>
+				<string>com.apple.package</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Hardware Growl Monitor</string>
+			<key>UTTypeIconFile</key>
+			<string>HWGrowler</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.jensyleo.hg4mac.monitor</string>
+			<key>UTTypeReferenceURL</key>
+			<string>http://growl.info</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>com.apple.ostype</key>
+				<array>
+					<string>HWGM</string>
+				</array>
+				<key>public.filename-extension</key>
+				<array>
+					<string>hwgrowlmonitor</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>
