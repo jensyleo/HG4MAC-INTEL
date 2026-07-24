@@ -7,6 +7,7 @@
 #import "HWGrowlDisplayMonitor.h"
 #import <CoreGraphics/CoreGraphics.h>
 #import <OSLog/OSLog.h>
+#import <sys/sysctl.h>
 
 // Detection is driven by CGDisplayRegisterReconfigurationCallback + CGGetOnlineDisplayList,
 // NOT NSScreen/NSApplicationDidChangeScreenParametersNotification. NSScreen only exposes
@@ -41,6 +42,18 @@
 // best-effort heuristic that scrapes free-form kernel log text with no stability contract.
 #define HWG_DISPLAY_EARLY_DETECTION_KEY          @"HWGDisplayEarlyDetectionEnabled"
 #define HWG_DISPLAY_EARLY_DETECTION_INTERVAL_KEY @"HWGDisplayEarlyDetectionIntervalSeconds"
+
+// Detects the HOST hardware, not the running binary's own architecture — this Intel-only
+// build can still execute under Rosetta on an Apple Silicon Mac, and DCPAVFamilyProxy/
+// IOAVFamily (see -pollForPhysicalVideoLink) is a kernel-level subsystem tied to the
+// physical Mac, not to which architecture slice happens to be running. `hw.optional.arm64`
+// is the standard sysctl for "is this an Apple Silicon Mac" regardless of translation.
+static BOOL HWGIsAppleSiliconHost(void) {
+	int isArm64 = 0;
+	size_t size = sizeof(isArm64);
+	if (sysctlbyname("hw.optional.arm64", &isArm64, &size, NULL, 0) != 0) return NO;
+	return isArm64 != 0;
+}
 
 static BOOL HWGDisplayBoolForKey(NSString *key, BOOL def) {
 	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
@@ -156,6 +169,11 @@ static void HWGDisplayReconfigurationCallback(CGDirectDisplayID display, CGDispl
 -(void)updateEarlyDetectionTimerState {
 	[earlyDetectionTimer invalidate];
 	earlyDetectionTimer = nil;
+
+	// Guards against a stale/synced default already being YES (e.g. prefs carried over from
+	// an Apple Silicon Mac) — this build has no way to satisfy the feature on Intel hardware
+	// regardless of what the toggle says, so never start the poll timer here.
+	if (!HWGIsAppleSiliconHost()) return;
 
 	if (!HWGDisplayBoolForKey(HWG_DISPLAY_EARLY_DETECTION_KEY, NO)) return;
 
@@ -617,10 +635,13 @@ static void HWGDisplayReconfigurationCallback(CGDirectDisplayID display, CGDispl
 	]];
 	previous = expHeader;
 
+	BOOL isAppleSiliconHost = HWGIsAppleSiliconHost();
+
 	NSButton *earlyDetectionCheckbox = [NSButton checkboxWithTitle:NSLocalizedString(@"Try to detect the video link before macOS assigns a role", @"")
 															 target:self
 															 action:@selector(earlyDetectionToggleChanged:)];
-	earlyDetectionCheckbox.state = HWGDisplayBoolForKey(HWG_DISPLAY_EARLY_DETECTION_KEY, NO) ? NSControlStateValueOn : NSControlStateValueOff;
+	earlyDetectionCheckbox.state = (isAppleSiliconHost && HWGDisplayBoolForKey(HWG_DISPLAY_EARLY_DETECTION_KEY, NO)) ? NSControlStateValueOn : NSControlStateValueOff;
+	earlyDetectionCheckbox.enabled = isAppleSiliconHost;
 	earlyDetectionCheckbox.translatesAutoresizingMaskIntoConstraints = NO;
 	[v addSubview:earlyDetectionCheckbox];
 	[NSLayoutConstraint activateConstraints:@[
@@ -630,12 +651,28 @@ static void HWGDisplayReconfigurationCallback(CGDirectDisplayID display, CGDispl
 	]];
 	previous = earlyDetectionCheckbox;
 
+	if (!isAppleSiliconHost) {
+		NSTextField *intelNotice = [NSTextField wrappingLabelWithString:NSLocalizedString(@"Not available on this Mac: this experimental feature reads a kernel logging subsystem (DCPAVFamilyProxy) that only exists on Apple Silicon's Display Co-Processor driver.", @"")];
+		intelNotice.font = [NSFont systemFontOfSize:11];
+		intelNotice.textColor = [NSColor secondaryLabelColor];
+		intelNotice.translatesAutoresizingMaskIntoConstraints = NO;
+		intelNotice.preferredMaxLayoutWidth = 320;
+		[v addSubview:intelNotice];
+		[NSLayoutConstraint activateConstraints:@[
+			[intelNotice.topAnchor      constraintEqualToAnchor:previous.bottomAnchor constant:6],
+			[intelNotice.leadingAnchor  constraintEqualToAnchor:v.leadingAnchor constant:36],
+			[intelNotice.trailingAnchor constraintEqualToAnchor:v.trailingAnchor constant:-16],
+		]];
+		previous = intelNotice;
+	}
+
 	NSInteger currentInterval = HWGDisplayIntForKey(HWG_DISPLAY_EARLY_DETECTION_INTERVAL_KEY, 3);
 	if (currentInterval < 1) currentInterval = 1;
 	if (currentInterval > 10) currentInterval = 10;
 
 	NSTextField *intervalLabel = [NSTextField labelWithString:[NSString stringWithFormat:NSLocalizedString(@"Poll every %ld s", @""), (long)currentInterval]];
 	intervalLabel.translatesAutoresizingMaskIntoConstraints = NO;
+	intervalLabel.enabled = isAppleSiliconHost;
 	self.earlyDetectionIntervalLabel = intervalLabel;
 	[v addSubview:intervalLabel];
 	[NSLayoutConstraint activateConstraints:@[
@@ -646,6 +683,7 @@ static void HWGDisplayReconfigurationCallback(CGDirectDisplayID display, CGDispl
 	NSSlider *intervalSlider = [NSSlider sliderWithValue:currentInterval minValue:1 maxValue:10 target:self action:@selector(earlyDetectionIntervalChanged:)];
 	intervalSlider.numberOfTickMarks = 10;
 	intervalSlider.allowsTickMarkValuesOnly = YES;
+	intervalSlider.enabled = isAppleSiliconHost;
 	intervalSlider.translatesAutoresizingMaskIntoConstraints = NO;
 	[v addSubview:intervalSlider];
 	[NSLayoutConstraint activateConstraints:@[
