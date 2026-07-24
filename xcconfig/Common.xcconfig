@@ -22,8 +22,8 @@ USER_HEADER_SEARCH_PATHS = $TARGET_BUILD_DIR/include/ $SRCROOT $SRCROOT/GrowlStu
 //target platform
 SDKROOT = macosx
 MACOSX_DEPLOYMENT_TARGET = 11.0
-ARCHS = arm64 x86_64
-VALID_ARCHS = arm64 x86_64
+ARCHS = x86_64
+VALID_ARCHS = x86_64
 
 //warnings 
 // -- no-format-nonliteral is /required/ for our CF extensions to compile with -Wall -Werror -Wformat enabled.
