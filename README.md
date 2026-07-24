@@ -43,18 +43,18 @@ Apple Silicon**, starting from the upstream linked above.
 - **Twelve hardware/system monitors** (loadable plugins):
   | Monitor | Reports |
   |---------|---------|
-  | **Volume** | mount / unmount (with a Finder "click to open"), ignore-list picker, and (F34) the mounted volume's interface/reader type (e.g. "SD/CF card (integrated reader)" vs "SD/CF card (external reader)" vs a generic bus name), on by default |
+  | **Volume** | mount / unmount (with a Finder "click to open"), ignore-list picker, device-specific icon (SD card / USB drive / external disk) when Disk Arbitration reports enough signal to tell them apart, and the mounted volume's interface/reader type (e.g. "SD/CF card (integrated reader)" vs "SD/CF card (external reader)" vs a generic bus name), on by default |
   | **USB** | device connect / disconnect |
-  | **Thunderbolt** | device connect / disconnect, plus (F34, off by default) a separate "eGPU Connected"/"eGPU Disconnected" notification when the hot-plugged device is a PCI Display Controller — see "Known limitations" for why eGPU *disconnect* often can't be detected |
-  | **Network** | Wi-Fi connect/disconnect (SSID + BSSID via CoreWLAN, signal-strength icon, reported at launch too), Ethernet/interface link up/down + media speed/duplex, IPv4/IPv6 + CIDR + gateway, and (F34, off by default) VPN connect/disconnect — see "Known limitations" for how this is detected and its caveats |
+  | **Thunderbolt** | device connect / disconnect, plus an optional, off-by-default separate "eGPU Connected"/"eGPU Disconnected" notification when the hot-plugged device is a PCI Display Controller — see "Known limitations" for why eGPU *disconnect* often can't be detected |
+  | **Network** | Wi-Fi connect/disconnect (SSID + BSSID via CoreWLAN, signal-strength icon, reported at launch too), Ethernet/interface link up/down + media speed/duplex, IPv4/IPv6 + CIDR + gateway, and an optional, off-by-default VPN connect/disconnect notice — see "Known limitations" for how this is detected and its caveats |
   | **Bluetooth** | device connect / disconnect |
-  | **Power** | AC/battery transitions (with a colored "old → new" source line), a battery-level icon ramp (0–100), a charging-level ramp, time remaining / time-to-charge, periodic status refire, low-battery warning (announces "fully charged" once, no repeats), a separate Battery Health Check (cycle count / battery health %) with its own configurable interval, an optional more-frequent "Notify every" reminder (in hours or minutes) between full checks, a "Check Now" button to preview it on demand, and (F34, off by default) a Low Power Mode on/off notification |
+  | **Power** | AC/battery transitions (with a colored "old → new" source line), a battery-level icon ramp (0–100), a charging-level ramp, time remaining / time-to-charge, periodic status refire, low-battery warning (announces "fully charged" once, no repeats), a separate Battery Health Check (cycle count / battery health %) with its own configurable interval, an optional more-frequent "Notify every" reminder (in hours or minutes) between full checks, a "Check Now" button to preview it on demand, and an optional, off-by-default Low Power Mode on/off notification |
   | **Thermal** | system thermal state changes (Nominal/Fair/Serious/Critical throttling) with a colored "old → new" transition line and an explicit "Cooling down"/"Warming up" direction tag, per-level notification toggles, and a "Simulate Test Notification" control (Preferences) to preview any state combination on demand — useful since many Macs rarely or never reach Serious/Critical under normal/moderate load. A separate module from **Power** by design (battery state and thermal/throttling state are shown independently), but reads from the same system power/process-info APIs (`NSProcessInfo`) as Power Monitor — noted here for traceability. |
   | **Display** | external display connect/disconnect (name, resolution, refresh rate, rotation, role), plus changes to an *already-connected* display's resolution, refresh rate, rotation, or role (Main/Extended/Mirrored) — each shown with a colored "old → new" line and independently toggleable. An optional, off-by-default experimental early physical-link detection is also available (see below). |
   | **Audio** | default output/default input device changes (with a colored "old → new" line, transport/channel count/sample rate detail), plus connect/disconnect for audio devices on transports USB/Bluetooth Monitor don't already cover (Built-in, HDMI, Thunderbolt, AirPlay, Aggregate) — see "Known limitations" below for why USB/Bluetooth audio devices are deliberately NOT re-reported here. |
   | **Camera** | connect/disconnect for cameras on transports USB/Bluetooth Monitor don't already cover (same filtering logic as Audio, see below), plus a privacy-relevant "camera started/stopped being used by any app" signal (via CoreMediaIO, the same fact macOS's own camera-in-use indicator reflects) — reading it requires no camera/TCC permission, since it's hardware-state observation, not frame capture. |
   | **Gamepad** | game controller connect/disconnect, vendor name, controller category (e.g. DualSense/Xbox/MFi), player index, and battery level — reported even when USB/Bluetooth Monitor also announced the same physical connect generically, since the GameController framework exposes no transport type to filter on, and the controller-specific detail (category/battery/player) is new information regardless. Only recognizes officially HID-compliant controllers (PS4/PS5/Xbox/MFi) — see "Known limitations". |
-  | **Printer** (F34, new, off by default) | printer added/removed, detected for USB, Bluetooth, and network (IPP/AirPrint/Bonjour) printers alike — see "Known limitations" for how detection works and its caveats |
+  | **Printer** (off by default) | printer added/removed, detected for USB, Bluetooth, and network (IPP/AirPrint/Bonjour) printers alike — see "Known limitations" for how detection works and its caveats |
 - **Duplicate suppression** and **"unstable device"** detection (flags a device that
   rapidly connects/disconnects).
 - **Modern macOS integration**: "Start at Login" via `SMAppService`, a custom-drawn
@@ -162,7 +162,7 @@ open /Applications/HG4MAC.app
   filter only suppresses the connect/disconnect axis specifically:
   - Audio Monitor's default-output/default-input-changed notifications still fire regardless
     of transport, since *which device macOS is actually using* is separate information from
-    *that a device merely exists* — confirmed live (20-jul-2026) with a Bluetooth speaker:
+    *that a device merely exists* — confirmed live with a Bluetooth speaker:
     connecting it produced Bluetooth Monitor's own "Bluetooth Connection" notification, no
     duplicate "Audio Device Connected", but still a legitimate "Default Output: MacBook Air
     Speakers → \<speaker name\>".
@@ -179,7 +179,7 @@ open /Applications/HG4MAC.app
   Monitor also announced the same physical connect generically — this is intentional, not a
   missed duplicate filter.** Unlike Audio/Camera, the GameController framework (`GCController`)
   exposes no transport-type property to filter on, so there's no reliable way to suppress this
-  case the same way. The design choice (confirmed with the user, 19-jul-2026) is to always
+  case the same way. The design choice is to always
   show it anyway: the generic "USB/Bluetooth Device Connected: \<name\>" notification doesn't
   know the device is specifically a recognized game controller, its vendor/product category
   (DualSense/Xbox/MFi/etc.), player index, or battery level — genuinely new information even
@@ -190,7 +190,7 @@ open /Applications/HG4MAC.app
   even though USB/Bluetooth Monitor sees it fine.** `GCController` only reports devices that
   implement the HID report descriptor for a profile it recognizes (Extended Gamepad, the
   profile official PS4/PS5/Xbox/MFi controllers implement) — it is not "any HID device that
-  looks like a gamepad." Confirmed live (22-jul-2026) with a generic/off-brand USB
+  looks like a gamepad." Confirmed with a generic/off-brand USB
   controller: USB Monitor announced the connect normally (it only needs to know a USB HID
   device appeared), but Gamepad Monitor never fired "Game Controller Connected," and calling
   `+[GCController startWirelessControllerDiscoveryWithCompletionHandler:]` (required for the
@@ -200,7 +200,7 @@ open /Applications/HG4MAC.app
   controllers, not something this app's code can work around; testing Gamepad Monitor
   requires an official PS4/PS5/Xbox/MFi controller.
 
-- **eGPU detection (Thunderbolt Monitor, F34, off by default) can usually detect CONNECT but
+- **eGPU detection (Thunderbolt Monitor, off by default) can usually detect CONNECT but
   not DISCONNECT.** An eGPU is inferred by checking whether a hot-plugged `IOPCIDevice` is a
   PCI "Display Controller" (base class `0x03`) — the same heuristic real eGPU enclosures
   enumerate as. On connect, the device's registry properties are still readable, so this
@@ -210,8 +210,8 @@ open /Applications/HG4MAC.app
   class-code check silently fails and "eGPU Disconnected" often does not fire, even though
   the generic "Thunderbolt Disconnection" notification still does.
 
-- **SD/CF card reader detection (Volume Monitor, F34, on by default) cannot identify every
-  reader — confirmed live (22-jul-2026) with a real USB card reader behind a hub.** Detection
+- **SD/CF card reader detection (Volume Monitor, on by default) cannot identify every
+  reader — confirmed with a real USB card reader behind a hub.** Detection
   relies on Disk Arbitration reporting a "Secure Digital"-like signal in the device's
   protocol, media name, or model string. That specific reader/hub exposed the mounted card
   purely as a generic USB Mass Storage Class device — protocol `"USB"`, media name
@@ -225,11 +225,11 @@ open /Applications/HG4MAC.app
   (or no line, if the "Interface" field's protocol is also generic) is the expected fallback
   for readers like this one.
 
-  This same limitation applies to the F29/F30 device-type icon (SD card/pendrive/external
-  disk) heuristic: confirmed live (23-jul-2026) with a real SD card in a USB adapter that
+  This same limitation applies to the device-type icon (SD card/pendrive/external
+  disk) heuristic: confirmed with a real SD card in a USB adapter that
   reports media name `"STORAGE DEVICE"`, protocol `"USB"`, 63.9GB — no SD-related token
   anywhere. A brief attempt to plug this gap by assuming "any small unidentified USB Mass
-  Storage device is a pendrive" was tried and reverted the same day: it broke on this exact
+  Storage device is a pendrive" was tried and reverted: it broke on this exact
   case, since there's no way to tell that situation apart from an actual unidentified
   pendrive using protocol alone. Genuinely unidentifiable USB Mass Storage (no card-reader
   token, no disk/drive token, under the external-disk size threshold) intentionally falls
@@ -246,17 +246,17 @@ open /Applications/HG4MAC.app
   guaranteed-correct rule.
 
 - **"Disk Not Readable" (Volume Monitor) cannot tell "deliberately unmounted, healthy disk"
-  apart from "genuinely unreadable/corrupt disk" — confirmed live (23-jul-2026) with a real
-  external HDD the user had intentionally unmounted (via Finder/`diskutil unmount`) while
-  leaving it physically connected, then launched the app.** From Disk Arbitration's point of
+  apart from "genuinely unreadable/corrupt disk" — confirmed with a real
+  external HDD intentionally unmounted (via Finder/`diskutil unmount`) while
+  left physically connected, then launching the app.** From Disk Arbitration's point of
   view both situations look identical at scan time: the physical disk is present, but has no
   mounted (or, in the fixed slow-auto-mount case, no yet-recognized) filesystem — there is no
-  public API signal that distinguishes "the user chose to unmount this" from "this never
+  public API signal that distinguishes "this was deliberately unmounted" from "this never
   mounts because it's damaged." This is a permanent limitation of the detection approach, not
-  a bug — if you deliberately leave a disk unmounted-but-connected, expect a "Disk Not
+  a bug — if a disk is deliberately left unmounted-but-connected, expect a "Disk Not
   Readable" notice at the next app launch; it does not mean the disk is actually damaged.
 
-- **VPN detection (Network Monitor, F34, off by default) is a heuristic, not a definitive
+- **VPN detection (Network Monitor, off by default) is a heuristic, not a definitive
   check.** There is no public macOS API that flags an interface as "this is a VPN." Detection
   works by watching for `utun*`/`ppp*`/`ipsec*` BSD interfaces gaining or losing an IPv4/IPv6
   address — the same virtual-interface naming macOS's own built-in VPN client and most
@@ -265,7 +265,7 @@ open /Applications/HG4MAC.app
   some Network Extension–based content filters), producing a false positive; there is no way
   to distinguish those from a real VPN with public API alone.
 
-- **Printer Monitor (F34, new, off by default) uses polling, not a push notification** —
+- **Printer Monitor (off by default) uses polling, not a push notification** —
   there is no public API for "the system's printer list changed" (CUPS/PMServer internals are
   private). It polls the CUPS destination list (`cupsGetDests()`, the same public C API
   `lpstat` is built on) every 3 seconds and diffs against the previous snapshot, so there can
@@ -274,7 +274,7 @@ open /Applications/HG4MAC.app
   CUPS destinations once added — but a **network printer is only detected once it has
   actually been added** in System Settings → Printers & Scanners, not merely because it's
   discoverable/reachable on the LAN (Bonjour advertisement alone isn't enough).
-  - **Why not instant/event-driven**: an earlier attempt (23-jul-2026) watched CUPS's own
+  - **Why not instant/event-driven**: an earlier attempt watched CUPS's own
     config file (`/etc/cups/printers.conf`) directly via a kqueue-backed `DispatchSource`,
     which would have been instant and fully idle between changes (no polling overhead at
     all). Confirmed via live testing that this silently detected nothing — that file is

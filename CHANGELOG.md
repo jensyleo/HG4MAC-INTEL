@@ -4,6 +4,181 @@ All notable changes made in this fork on top of
 [`pranav-prakash/HardwareGrowler-NC`](https://github.com/pranav-prakash/HardwareGrowler-NC).
 Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-series)**.
 
+## 2026-07-24
+
+### New: four new monitors — Audio, Camera, Gamepad, Printer
+- **Audio Monitor**: reports default output/input device changes (old device → new device,
+  with transport/channel count/sample rate when enabled) and device connect/disconnect,
+  filtered by transport so a Bluetooth speaker doesn't also fire a redundant "Audio Device
+  Connected" on top of Bluetooth Monitor's own notice. Verified live with a real Bluetooth
+  speaker (VTA-82891) for both output and input, and with a real AV receiver over
+  HDMI/optical. Icon is currently a temporary vector drawing in code (speaker + sound
+  waves, orange) rather than a designed PNG — replacing it with a hand-designed asset
+  (same pipeline as Power/Thermal/Thunderbolt/Volume Monitor) remains open.
+- **Camera Monitor**: reports camera connect/disconnect and "started/stopped being used",
+  filtered by transport the same way as Audio. Two real crashes were found and fixed during
+  testing with a USB webcam:
+  - The "in use" CMIO listener was only registered once at launch, against the devices that
+    existed at that moment — a camera plugged in AFTER launch never got a listener, so
+    "USB camera started being used" silently never fired even though the checkbox was on.
+    Fixed with a listener over the CMIO device list itself that re-registers automatically
+    whenever a device appears/disappears.
+  - Unplugging the USB camera then crashed the app with `SIGSEGV` inside
+    `CMIOObjectRemovePropertyListenerBlock`, called from `unregisterInUseListeners`, itself
+    called from INSIDE CoreMediaIO's own device-list-changed callback — an unsafe reentrant
+    call into the framework at the exact moment the removed camera's `CMIODeviceID` becomes
+    invalid. A second, related crash then showed up on CONNECT too (with Preferences open),
+    ruling out reentrancy as the sole cause: the real root cause was
+    `inUseListenerBlock`/`deviceListChangedBlock` being declared `@property (nonatomic,
+    assign)` instead of `copy` — with `assign`, ARC never copies the block to the heap, so
+    the property pointed at already-freed stack memory as soon as `-init` returned; any
+    later use (adding/removing the listener) read invalid memory, crashing unpredictably on
+    either a connect or a disconnect event. Fixed by (1) deferring the re-registration work
+    with `dispatch_async` to leave the CMIO callback's stack before touching listeners, and
+    (2) switching both block properties to `copy`. Re-tested with Preferences both open and
+    closed after both fixes — no crash on either connect or disconnect.
+  - Icon (camera + lens, Bluetooth blue) confirmed visually; flagged as a
+    candidate for more color variety, not yet redesigned.
+- **Gamepad Monitor**: reports game-controller connect/disconnect via `GCController`. A real
+  bug was found and fixed: connecting a controller only ever produced the generic
+  USB/Bluetooth notice, never "Game Controller Connected" — nothing was calling
+  `[GCController startWirelessControllerDiscoveryWithCompletionHandler:]`, without which
+  GameController doesn't route connection events to a menu/background-only app (even for
+  wired controllers, in practice). Fixed by calling it in `-init` (nil handler, runs for the
+  plugin's whole lifetime) and `stopWirelessControllerDiscovery` in `-dealloc`. After that
+  fix, testing with the only controller available (a generic/third-party pad) still didn't
+  produce "Game Controller Connected" — confirmed as a real, documented **limitation, not a
+  bug**: `GCController` only recognizes devices implementing the HID "Extended Gamepad"
+  profile (official PS4/PS5/Xbox/MFi controllers); a generic pad works as a normal HID/USB
+  device (which is why USB Monitor still sees it) but the system never exposes it as a
+  `GCController`, regardless of app code. Testing the Type/Player/Battery fields and the
+  disconnect notice is closed pending access to an official controller.
+- **Printer Monitor** (one of twelve monitor plugins): reports printer connect/disconnect
+  via CUPS, polling every 3s (down from an initial 15s). A real bug was found and fixed
+  during live testing with a Bonjour printer: `[NSPrinter printerNames]` always returned
+  empty in this app even though `lpstat`/CUPS could see the printer — replaced with
+  `cupsGetDests()`, the real API `lpstat` itself uses. An instant file-watch mechanism over
+  `/etc/cups/printers.conf` (via kqueue) was attempted and then reverted: that file is mode
+  600, owned `root:_lp`, and this app will never read it without privileges it shouldn't
+  request — documented in README. Icon redesigned from a supplied reference image,
+  adapted to the app's color language and enlarged ~22%.
+  - Three additional, independently toggleable features were added, all **off by default**
+    and still pending live testing: (1) error/attention-state notification via the
+    IPP-standard `printer-state-reasons` transition (out of paper, jammed, offline); (2)
+    "default printer changed" notification; (3) extra fields (Location / Make-model /
+    Connection type) on the existing "Printer Connected" notice.
+
+### New: candidate monitor extensions — Low Power Mode, eGPU, VPN detection
+- **Power Monitor**: new, off-by-default "Notify when Low Power Mode is turned on/off"
+  notification, driven by `NSProcessInfoPowerStateDidChangeNotification` plus a
+  last-known-state comparison (the notification can also fire from a shared underlying
+  mechanism on thermal-state changes on some OS versions, so the raw notification alone
+  isn't trusted). Verified live and confirmed working.
+- **Thunderbolt Monitor**: new, off-by-default "Notify separately when an eGPU is connected"
+  checkbox. Detects a hot-plugged PCI "Display Controller" function (class-code base 0x03)
+  — in practice, an external GPU attached via Thunderbolt, since internal Apple Silicon GPUs
+  never enumerate as a post-launch `IOPCIDevice` add/remove. Documented in README that
+  DISCONNECT will often be silently missed: registry properties are frequently unreadable
+  from a terminating IOKit entry by the time the removal callback fires, the same limitation
+  the generic Thunderbolt removal notice already has. Still pending a live test with a real
+  eGPU (none available in this environment).
+- **Network Monitor**: new, off-by-default "Notify when a VPN connects/disconnects",
+  in its own dedicated "VPN" tab (split out of the previously-reserved "Other" tab, which
+  stays empty for future use). Detection is a heuristic: BSD interface names with a
+  `utun`/`ppp`/`ipsec` prefix that gain/lose a real IP address are treated as a VPN
+  connect/disconnect transition. `utun` in particular is also used by some non-VPN system
+  features (Content Filter / Network Extension), so a false positive is possible in
+  principle — documented in README. Live testing with a real VPN connect/disconnect is in
+  progress.
+
+### New: Performance preset (Modules → Minimal / All / Custom)
+- Added a 3-way preset control at the top of the Modules tab (moved there from General,
+  compressing the monitor table/detail pane to make room) to address concern about running
+  all twelve monitors at once: **Minimal** enables only Volume/USB/Thunderbolt/Bluetooth/
+  Power/Network; **All** re-enables every monitor; **Custom** leaves the current selection
+  untouched. Selecting a monitor's checkbox directly in the Modules table, or any setting
+  INSIDE an individual monitor's own preferences pane, automatically flips the radio to
+  "Custom" — the latter is detected by diffing `NSUserDefaults` snapshots via
+  `NSUserDefaultsDidChangeNotification`, since the plugins have no shared "a setting
+  changed" callback into `AppDelegate`. A bug where "Custom" silently lost its own
+  configuration when switching away to Minimal/All and back was found and fixed by
+  capturing a snapshot at the moment Custom is left. All scenarios (visual placement,
+  Minimal/All/Custom switching, both auto-switch-to-Custom paths, Custom-state
+  preservation, internal checkboxes never being touched by the preset) confirmed live.
+
+### New: device-specific icons for Volume Monitor (SD card / USB drive / external disk)
+- Added `Device-SDCard`, `Device-USBDrive`, `Device-ExternalDisk` (plus `-Critical` and
+  `-Unmounted` variants for each, using the same red-X overlay as the existing generic
+  eject icon) and wired them into Volume Monitor via a new heuristic classifier,
+  `HWGDeviceCategoryFromInfo`, that reads Disk Arbitration's protocol/media-name/model/size
+  and falls back to the existing generic mount/eject/"Disk Not Readable" icons whenever the
+  signal isn't strong enough to make a confident call — it never forces a guess.
+- Several real bugs were found and fixed during live testing with a real pendrive
+  (Kingston "DT 100 G2") and a real external hard disk connected together:
+  - The classifier initially only matched brand-name-free tokens (`flash`/`thumb`/`pen
+    drive`/`mass storage`); most real devices report their own brand/model instead, so it
+    fell back to the generic icon. Added a fallback: USB protocol + a known size + no
+    disk/SD match → `USBDrive` (a USB Mass Storage device under 400GB that isn't a card
+    reader is almost always a pendrive in practice).
+  - A false "Disk Not Readable" briefly appeared for an already-mounted pendrive at app
+    launch, because Disk Arbitration sometimes delivers the "whole disk" object noticeably
+    before the already-populated partition callback during the initial device scan, and the
+    existing 1.5s grace window didn't always cover that gap. Fixed by cross-checking the
+    real mount table (`getmntinfo()`) before declaring "not readable": an already-mounted
+    partition cancels the false alert.
+  - Ejecting/unplugging an already-identified device always showed the generic eject icon
+    on "Unmounted" instead of its specific device icon, because the unmount `VolumeInfo`
+    was built with a fixed eject icon without re-querying the device category (and by the
+    time `-volumeDidUnmount:` runs, the path no longer exists to query). Fixed by capturing
+    the category into a new `pathDeviceCategory` dictionary at MOUNT time (always reliable)
+    instead of at unmount time — this also transparently covers both an ordered Finder
+    eject and a direct physical "surprise" disconnect, which a first attempt (capturing the
+    category in `-volumeWillUnmount:`) missed, since that callback only fires on an ordered
+    software eject.
+  - With a pendrive and an external hard disk connected together, the first attempt failed
+    to detect the pendrive and produced a false "Disk Not Readable" for the (healthy)
+    external disk. Root cause: `wholeDiskGroupKeyForDisk:` grouped devices by the whole
+    disk's generic media name (e.g. "Generic") — many different physical devices report
+    the same generic name for their whole-disk object, so two unrelated devices could
+    collide under the same internal grouping key and cross-contaminate each other's
+    "not readable" timers and "already reported" bookkeeping. Fixed by switching the
+    grouping key to the whole disk's BSD name (e.g. "disk4" — unique per physical device
+    for the session) while keeping the medium name only for the notification's display
+    text. Thunderbolt/USB/Camera/Printer Monitor were reviewed for the same pattern and
+    found not to share the risk (their identifiers are either pure dedup strings or
+    guaranteed-unique hardware/CUPS identifiers, not internal dictionary keys).
+  - A **known, deliberately unfixed limitation**: the app cannot distinguish "the user
+    unmounted this on purpose and it's healthy" from "this never mounted because it's
+    damaged" — both look identical to Disk Arbitration (device present, no filesystem
+    mounted or recognized at that moment). Documented in README as an accepted,
+    deliberately unfixed limitation.
+  - A regression was found and **reverted**: after the pendrive-name fallback above, an SD
+    card in a USB card reader/adapter got classified as a pendrive, because it reported
+    itself as generic USB Mass Storage (media name "STORAGE DEVICE", protocol "USB", no
+    SD/reader token anywhere) — indistinguishable from a genuinely unbranded pendrive with
+    the signals available. The fallback was reverted; both cases now fall back to the
+    generic icon again, documented in README as a known limitation. A related concern was
+    also raised and documented: the ≥400GB "ExternalDisk" size heuristic is no longer
+    fully reliable, since pendrives larger than 400GB now exist on the market (e.g. 1TB
+    USB 3.1/3.2 drives).
+- Icon sizing was standardized across the whole app: all 63 notification icons (Bluetooth,
+  Device-*, Display, DisksVolumes, Network-*, Power/battery, Thermal, Thunderbolt, USB —
+  Preferences-only `HWGPrefs*` icons excluded) were rescaled uniformly (same factor on both
+  axes, never deforming naturally-horizontal icons like battery/USB/Thunderbolt) to ~94%
+  canvas coverage, from a previous range of 42%–100%. The red "X" used by 13 of those icons
+  (the 3 new device-category "Unmounted" variants, plus `Bluetooth-Off`,
+  `DisksVolumes-Eject`, `Display-Off`, `Network-Ethernet-Off`, `Network-Generic-Off`,
+  `Network-Interface-Off`, `Network-Wifi-Off`, `Thunderbolt-Off`, `USB-Off`,
+  `Power-NoBattery`) was likewise standardized to the same span/thickness across all 13,
+  reconstructed from each icon's "on"/base counterpart.
+
+### Changed: `AppDelegate.h`/`.m` — Performance preset state and defaults-diffing
+- Added the Minimal/All/Custom radio outlets and the `applyingPerformancePreset` reentrancy
+  guard (prevents the preset-apply code path from re-triggering its own "user changed a
+  monitor, switch to Custom" detection), plus `lastKnownDefaultsSnapshot` for the
+  `NSUserDefaultsDidChangeNotification`-based diffing described above.
+
+
 ## 2026-07-19
 
 ### New: colored "before → after" highlight in notification banners
@@ -96,7 +271,7 @@ Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-
   never changed size), while `CGGetOnlineDisplayList` correctly reflects it in both Mirror
   and Extended arrangements.
 - Notification includes the display's name (`NSScreen.localizedName`) plus three
-  individually toggleable fields (F33 pattern, same as USB/Thermal, all default on):
+  individually toggleable fields (same per-field pattern as USB/Thermal, all default on):
   resolution (with a Retina/scale-factor note when applicable), refresh rate, and role
   (Main / Extended / Mirrored).
 - New icons: `Display-On`/`Display-Off` (notification) and `HWGPrefsDisplay` (sidebar),
@@ -120,34 +295,34 @@ Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-
   charge-level ramp convention), plus a badge in the top-right corner that escalates in
   meaning: Nominal = green checkmark ("all good"), Fair = blue dash ("steady, still
   normal" — deliberately left neutral/undecorated in an earlier iteration, then given a
-  blue accent per the user's request to visually associate it with "normal" rather than a
+  blue accent to visually associate it with "normal" rather than a
   warning), Serious = the same warning triangle already used for "Unstable device" bounce
   alerts, Critical = the same radioactive icon already used for "Disk Not Readable" — reuse
   chosen deliberately so severity reads consistently across the whole app, not just within
-  this one monitor. Iterated live with the user via several published preview rounds before
+  this one monitor. Iterated through several preview rounds before
   landing on the final set. Build 0 warnings, verified the 4 renditions compiled into the
   asset catalog and the app launches cleanly; forcing a real thermal-state transition to
-  see the notification fire remains a pending manual test (see `TODO.md`).
+  see the notification fire remains untested against real hardware.
 
 ### New: dedicated Thermal Monitor sidebar icon
 - Replaced the temporary placeholder (no dedicated icon, sidebar row previously showed no
   image) with a proper flat icon matching the app's existing style: a thermometer with the
   same silhouette language as Power Monitor's battery icon (flat gray outline, no
   gradients/shadows), a solid red bulb, 4 stacked red segments in the tube (kept as 4
-  distinct sections — one per thermal level — but all the same red, per the user's final
-  design choice), and tick marks for readability as a thermometer. Iterated live with the
-  user via published previews (taller tube, smaller bulb, single-color segments) before
+  distinct sections — one per thermal level — but all the same red), and tick marks for
+  readability as a thermometer. Iterated through several previews (taller tube, smaller bulb,
+  single-color segments) before
   landing on the final version. New `HWGPrefsThermal.imageset`. Verified live in the
   Preferences sidebar alongside the other 6 monitor icons.
 
 ### Changed: Power Monitor icon color order
 - Reordered the battery icon's 4 blocks from green→yellow→orange→red (low-to-high, left to
-  right) to red→orange→yellow→green (high-to-low, left to right), per the user's request.
+  right) to red→orange→yellow→green (high-to-low, left to right).
 
-### New: configurable notification fields for Volume Monitor (F33)
+### New: configurable notification fields for Volume Monitor
 - Volume Monitor's "Volume Mounted" notification can now show, each independently
   toggleable from Preferences → Modules → Volume Monitor (all default on): the mount path,
-  the file system type, and the volume's total size. Completes the F33 per-field pattern
+  the file system type, and the volume's total size. Completes the per-field toggle pattern
   already applied to Network/Power/USB/Bluetooth/Thunderbolt — Volume was the only
   remaining monitor without it.
 - File system type and size are read via a plain `statfs()` syscall (the same mechanism
@@ -185,8 +360,8 @@ Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-
   pattern) — this stopped the pane from floating/overflowing, but a **second**, related
   symptom remained: a non-flipped document view, when shorter than the scroll view's
   visible clip area, gets anchored to the BOTTOM of the clip by AppKit's default behavior,
-  leaving the slack as a gap ABOVE the content instead of below it — exactly what the user
-  reported ("Notification fields debe aparecer más arriba"). Final fix: made the document
+  leaving the slack as a gap ABOVE the content instead of below it — exactly the symptom
+  observed. Final fix: made the document
   view a FLIPPED `NSView` subclass (`HWGVolumeFlippedContentView`, same pattern as
   NetworkMonitor's existing `HWGFlippedContentView`) and rebuilt the layout top-down
   (cursor starts at 0, grows downward) instead of the previous bottom-up/pre-computed-height
@@ -240,7 +415,7 @@ Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-
   declared height, so the pane's real content ends flush with its bottom padding and no
   scrollbar appears.
 
-### New: Thermal Monitor — 7th monitor plugin (F34 candidate #3)
+### New: Thermal Monitor — 7th monitor plugin
 - New loadable plugin `ThermalMonitor.hwgrowlmonitor`, separate from Power Monitor by
   design (battery state and thermal/throttling state shown independently to the user),
   though it reads from the same system power/process-info APIs (`NSProcessInfo`) as Power
@@ -255,11 +430,11 @@ Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-
   the toggles, so enabling one later doesn't miss the next real transition.
 - Icon: **temporary** — reuses the existing "Device-Unstable" warning triangle for
   Serious/Critical, no dedicated icon yet for Nominal/Fair (falls back to the app icon).
-  Real per-level icons are pending from the user (4 PNGs).
-- Considered alongside 2 other F34 candidates and **deferred instead of implemented**:
+  Dedicated per-level icons are pending (4 PNGs).
+- Two related monitor ideas were considered and **deferred instead of implemented**:
   Sleep/Wake and Screen Lock/Unlock — both decided to not fit the app's philosophy of
   reporting hardware changes while the Mac is in active use; Screen Lock additionally has
-  no public/documented API. See `CHANGELOG`/project notes for the full F34 candidate list.
+  no public/documented API.
 
 
 ### Fixed: Wi-Fi signal-change detection appeared delayed by up to 2 poll cycles
