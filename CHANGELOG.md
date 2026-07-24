@@ -6,6 +6,36 @@ Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-
 
 ## 2026-07-24
 
+### Fix: notification banners silently lost during a burst at launch
+- **Root cause #1**: the notification-routing layer (`GrowlApplicationBridge`) decides
+  whether to use the system Notification Center or its own built-in banner via a flag that
+  starts `NO` and is only corrected asynchronously, once authorization with the system
+  notification daemon round-trips — which can take a perceptible moment amid the IOKit/
+  Bluetooth/CoreWLAN setup happening at launch. Any notification fired before that
+  resolves tried the system path first, which always fails for this ad-hoc/linker-signed
+  build (see "Notifications & code signing" below), and only fell back to the built-in
+  banner after a SECOND async round-trip — one that may not resolve before the app moves
+  on, silently dropping the notification. Fixed by defaulting to the built-in banner
+  immediately and only switching to the system Notification Center once real permission is
+  confirmed granted.
+- **Root cause #2**: the banner stack has no on-screen height limit — each new banner
+  is placed strictly below the previous one with no cap or overflow handling. On a Mac
+  with several APFS system volumes, Volume Monitor's launch report of all of them (by
+  design — see below) could produce enough banners to push older, still-pending ones
+  (Power Monitor's battery/AC status, USB) past the bottom of the screen: invisible for
+  their whole 5 s lifetime, even though they fired correctly. Fixed with a small queue —
+  a banner that would overflow the screen waits until room frees up (another banner
+  dismissing) instead of being silently lost off-screen; its 5 s auto-dismiss timer only
+  starts once it's actually shown, so queued banners still get their full visible time.
+- Confirmed live: Bluetooth Monitor's own detection of a keyboard/mouse already connected
+  at launch was investigated as part of this and found to be present since the pre-existing
+  `registerForConnectNotifications:` call already reports state at registration time, not
+  just future events — the earlier assumption that it didn't was incorrect. Its disconnect
+  notification is now also registered unconditionally (regardless of whether the "notify on
+  launch" preference is on), and the already-connected-at-launch notification itself is
+  deferred ~2 s past registration so the banner infrastructure above has time to finish
+  initializing before it's posted.
+
 ### New: four new monitors — Audio, Camera, Gamepad, Printer
 - **Audio Monitor**: reports default output/input device changes (old device → new device,
   with transport/channel count/sample rate when enabled) and device connect/disconnect,

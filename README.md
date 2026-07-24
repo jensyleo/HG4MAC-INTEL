@@ -33,7 +33,9 @@ Apple Silicon**, starting from the upstream linked above.
   (`NSVisualEffectView`) that:
   - shows a **per-notification colored icon** (not just the app icon),
   - **grows dynamically** to fit long titles/bodies (e.g. long volume names, multi-line IP info),
-  - **stacks** multiple notifications vertically,
+  - **stacks** multiple notifications vertically, queuing any that would overflow the
+    screen's height instead of stacking them invisibly off-screen (common right after
+    launch, when several monitors can report their state at once),
   - has a **close (×)** button and is **click-to-open** (e.g. reveal a mounted volume in Finder),
   - **highlights "before → after" changes in color** — any notification line written as
     `"Label:\told → new"` automatically gets its new value colored (accent blue/teal,

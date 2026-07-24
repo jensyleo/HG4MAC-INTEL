@@ -1136,7 +1136,14 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 -(void)fireOnLaunchNotes{
 	// mountedLocalVolumePaths was deprecated in 10.11; use the NSFileManager URL API.
 	// options:0 (no SkipHiddenVolumes) to match the old behavior of listing ALL
-	// mounted volumes at launch, including system volumes.
+	// mounted volumes at launch, including system (APFS volume-group) volumes — real-world
+	// macOS mounts SEVEN OR MORE of these internal-only siblings alongside the boot volume
+	// ("/", "/System/Volumes/VM", "Preboot", "Update", "xarts", "iSCPreboot", "Hardware",
+	// "Data/home"). This is intentional: the app is meant to report them too, not just
+	// user-visible external media. The real bug this used to trigger — enough of these
+	// firing at once silently pushed OTHER monitors' launch notices (Power's battery/AC
+	// status, USB) off the bottom of the screen — is fixed at the source in
+	// GrowlApplicationBridge.m's banner stack (see `_pendingBannerReveals`), not here.
 	NSArray<NSURL*> *urls = [[NSFileManager defaultManager]
 		mountedVolumeURLsIncludingResourceValuesForKeys:nil
 												options:0];

@@ -18,11 +18,30 @@
 #import <QuartzCore/QuartzCore.h>
 
 static id<GrowlApplicationBridgeDelegate> _delegate = nil;
-static BOOL _useCustomBanner = NO;
+// Defaults to YES (built-in banner) rather than NO: `setGrowlDelegate:` below only learns
+// the real answer asynchronously, once `requestAuthorizationWithOptions:` round-trips to
+// the notification daemon — which can take a perceptible moment, especially amid the heavy
+// IOKit/Bluetooth/CoreWLAN setup happening at app launch. Any notification fired before
+// that completes (e.g. an "on launch" notice from Bluetooth/USB/Power/Network/Volume
+// Monitor reporting pre-existing state) would otherwise try the native
+// UNUserNotificationCenter path first — which always fails for this ad-hoc/linker-signed
+// build (see README) — and only fall back to the built-in banner after a SECOND async
+// round-trip through `addNotificationRequest:withCompletionHandler:`, which may not resolve
+// before the app itself has moved on, silently dropping the notification. Starting
+// custom-banner-first sidesteps that race; the completion handler below still corrects this
+// to NO on the rare/future build where native permission is actually granted.
+static BOOL _useCustomBanner = YES;
 
 // Active banners stack — newest at index 0 (top of screen), older below.
 // All access happens on the main queue, so no locking needed.
 static NSMutableArray *_activeBanners = nil;
+
+// FIFO queue of banners waiting for screen room — see the overflow check in
+// `showBannerWindow` and the drain point in `dismiss` below. Holds `void (^)(void)`
+// "reveal" blocks (each captures its own already-built, off-screen NSPanel), not raw
+// notification data — the panel/content view is built once, up front, regardless of
+// whether it can be shown immediately.
+static NSMutableArray *_pendingBannerReveals = nil;
 
 // Vertical gap between stacked banners (in screen pixels)
 static const CGFloat kBannerGap = 8.0;
@@ -101,6 +120,20 @@ static void repositionBanners(NSRect sf, BOOL animated) {
         }
         cardTop = originY - kBannerGap;   // next card sits below this one
     }
+}
+
+// Whether the visible stack has room for one more card of height `newCardH` without any
+// card's origin going past the bottom of the screen — mirrors `repositionBanners`' own
+// top-down layout math (each existing card's height + gap, summed) rather than a fixed
+// count, since actual card height varies with how much text a notification carries.
+static BOOL bannerStackHasRoomFor(CGFloat newCardH, NSRect sf) {
+    CGFloat used = 0;
+    for (NSPanel *p in _activeBanners) {
+        CGFloat cardH = p.frame.size.height - kPadT;
+        used += cardH + kBannerGap;
+    }
+    CGFloat available = sf.size.height - (2 * kScreenMargin);
+    return (used + newCardH) <= available;
 }
 
 // ── Highlights the changed value in "before → after" description lines ──────
@@ -345,6 +378,15 @@ static void showBannerWindow(NSString *title, NSString *body, id clickContext, N
                 repositionBanners(sf, YES);
             }
 
+            // Room just freed up — reveal the oldest still-queued banner, if any (see
+            // the overflow check below `_activeBanners insertObject:` for why some
+            // banners get queued instead of shown immediately).
+            if ([_pendingBannerReveals count]) {
+                void (^next)(void) = _pendingBannerReveals[0];
+                [_pendingBannerReveals removeObjectAtIndex:0];
+                next();
+            }
+
             [NSAnimationContext runAnimationGroup:^(NSAnimationContext *ctx) {
                 ctx.duration       = 0.3;
                 ctx.timingFunction = [CAMediaTimingFunction
@@ -377,27 +419,43 @@ static void showBannerWindow(NSString *title, NSString *body, id clickContext, N
             } completionHandler:nil];
         };
 
-        // Register at index 0 — this banner is now the newest (top slot)
-        [_activeBanners insertObject:panel atIndex:0];
+        // Actually presenting a banner (as opposed to building it) is its own block so a
+        // burst of notifications that would stack past the bottom of the screen can queue
+        // some of them instead of showing all at once — a queued banner otherwise sits
+        // there, positioned off-screen but still consuming screen space in the stacking
+        // math, invisible for its entire 5 s lifetime with no way to ever be seen. The 5 s
+        // auto-dismiss timer only starts once a banner is actually revealed, so a queued
+        // one still gets its full visible time once its turn comes.
+        void (^revealBlock)(void) = ^{
+            // Register at index 0 — this banner is now the newest (top slot)
+            [_activeBanners insertObject:panel atIndex:0];
 
-        // Show off-screen, then animate everyone to their correct positions.
-        // The new banner (index 0) slides in from the right; existing banners
-        // shift down to make room — all driven by repositionBanners.
-        [panel orderFront:nil];
-        repositionBanners(sf, YES);
+            // Show off-screen, then animate everyone to their correct positions.
+            // The new banner (index 0) slides in from the right; existing banners
+            // shift down to make room — all driven by repositionBanners.
+            [panel orderFront:nil];
+            repositionBanners(sf, YES);
 
-        // Re-register tracking areas once the panel reaches its on-screen spot
-        // (they were created while the view was off-screen with an empty rect).
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{
-            [cv updateTrackingAreas];
-        });
+            // Re-register tracking areas once the panel reaches its on-screen spot
+            // (they were created while the view was off-screen with an empty rect).
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)),
+                           dispatch_get_main_queue(), ^{
+                [cv updateTrackingAreas];
+            });
 
-        // Auto-dismiss after 5 s (skipped if user already clicked "×")
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC),
-                       dispatch_get_main_queue(), ^{
-            dismiss();
-        });
+            // Auto-dismiss after 5 s (skipped if user already clicked "×")
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC),
+                           dispatch_get_main_queue(), ^{
+                dismiss();
+            });
+        };
+
+        if (bannerStackHasRoomFor(CARD_H, sf)) {
+            revealBlock();
+        } else {
+            if (!_pendingBannerReveals) _pendingBannerReveals = [[NSMutableArray alloc] init];
+            [_pendingBannerReveals addObject:[revealBlock copy]];
+        }
     });
 }
 

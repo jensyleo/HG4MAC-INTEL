@@ -55,7 +55,13 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 
 -(void)postRegistrationInit {
 	self.starting = YES;
-	self.connectionNotification = [IOBluetoothDevice registerForConnectNotifications:self 
+	// `registerForConnectNotifications:` fires `bluetoothConnection:device:` synchronously,
+	// during this call, for every device already connected at registration time (in addition
+	// to real future connect events) — it does enumerate pre-existing state, unlike
+	// IOKit's plain "future events only" notification style. So detection of an
+	// already-connected keyboard/mouse at launch already works; see `bluetoothConnection:`
+	// for why the notification itself still needs special handling at this exact moment.
+	self.connectionNotification = [IOBluetoothDevice registerForConnectNotifications:self
 																									selector:@selector(bluetoothConnection:device:)];
 	self.starting = NO;
 }
@@ -151,10 +157,29 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 -(void)bluetoothConnection:(IOBluetoothUserNotification*)note
 						  device:(IOBluetoothDevice*)device
 {
-	if (!starting || [delegate onLaunchEnabled])
-		[self bluetoothName:[device name] connected:YES extraInfo:[self bluetoothExtraInfoForDevice:device]];
-
 	[device registerForDisconnectNotification:self selector:@selector(bluetoothDisconnection:device:)];
+
+	if (!starting || [delegate onLaunchEnabled]) {
+		if (starting) {
+			// A device already connected at launch is reported here synchronously, from
+			// `-postRegistrationInit` (itself called from `-awakeFromNib` on the Preferences
+			// window controller) — well before `-applicationDidFinishLaunching:` and before
+			// the notification banner plumbing (`GrowlApplicationBridge`) has finished its
+			// own async setup. Confirmed via logging that this path was reached correctly
+			// (device detected, `onLaunchEnabled` true, `notifyWithName:` called) but no
+			// banner ever appeared. Deferring a couple of seconds gives that infrastructure
+			// time to finish initializing before the notification is actually posted — a
+			// real, currently-connecting device (the non-`starting` path below) doesn't need
+			// this, since by then the app has been running for a while.
+			NSString *name = [device name];
+			NSString *extraInfo = [self bluetoothExtraInfoForDevice:device];
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+				[self bluetoothName:name connected:YES extraInfo:extraInfo];
+			});
+		} else {
+			[self bluetoothName:[device name] connected:YES extraInfo:[self bluetoothExtraInfoForDevice:device]];
+		}
+	}
 }
 
 #pragma mark HWGrowlPluginProtocol
