@@ -157,7 +157,19 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 		[self initMenu];
 	}
 	
+	// Auto-heal: "OnLogin" reflects the user's INTENT (last thing they explicitly chose),
+	// separate from -isRegisteredAtLogin which reflects the CURRENT BINARY's actual
+	// SMAppService status. Without a stable code-signing identity (ad-hoc builds have none),
+	// every rebuild gets a different code hash, and the OLD registration doesn't carry over
+	// to the new binary — the user would otherwise see the toggle silently reset to OFF
+	// after every reinstall, even though they never turned it off themselves. If intent and
+	// reality disagree, re-assert the intent now rather than making the user re-click it.
+	BOOL intentOn = [[NSUserDefaults standardUserDefaults] boolForKey:@"OnLogin"];
 	BOOL _isOn = [self isRegisteredAtLogin];
+	if (intentOn && !_isOn) {
+		[self setStartAtLogin:YES];
+		_isOn = [self isRegisteredAtLogin];
+	}
 	[[NSUserDefaults standardUserDefaults] setBool:_isOn forKey:@"OnLogin"];
 	[[NSUserDefaultsController sharedUserDefaultsController].defaults setBool:_isOn forKey:@"OnLogin"];
 	[onLoginSwitch setState:_isOn];
@@ -480,7 +492,17 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 																					 context:nil];
 	oldIconValue = [[[NSUserDefaultsController sharedUserDefaultsController] defaults] integerForKey:@"Visibility"];
 
+	// Same auto-heal as -awakeFromNib above: this runs on EVERY launch (unlike
+	// -awakeFromNib, which only fires once the Preferences nib is first loaded), so it's
+	// the point that actually matters for silently re-asserting a lost registration after
+	// a rebuild — without opening Preferences at all, the user would otherwise only
+	// discover "Start at Login" reset itself the next time they logged out and back in.
+	BOOL intentOnAtLaunch = [[NSUserDefaults standardUserDefaults] boolForKey:@"OnLogin"];
 	BOOL isRegistered = [self isRegisteredAtLogin];
+	if (intentOnAtLaunch && !isRegistered) {
+		[self setStartAtLogin:YES];
+		isRegistered = [self isRegisteredAtLogin];
+	}
 	[[NSUserDefaultsController sharedUserDefaultsController].defaults setBool:isRegistered forKey:@"OnLogin"];
 	oldOnLoginValue = isRegistered;
 }
