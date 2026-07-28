@@ -19,7 +19,7 @@ typedef enum : NSInteger {
 	kDontShowIcon = 3
 } HWGrowlIconState;
 
-@interface AppDelegate : NSObject <NSApplicationDelegate, NSToolbarDelegate, NSTableViewDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate, CBCentralManagerDelegate> {
+@interface AppDelegate : NSObject <NSApplicationDelegate, NSToolbarDelegate, NSTableViewDelegate, NSTableViewDataSource, NSWindowDelegate, UNUserNotificationCenterDelegate, CBCentralManagerDelegate> {
 	// Only ivars WITHOUT a @property live here; the rest are synthesized with the
 	// correct ARC ownership from the @property declarations below.
 	NSStatusItem *statusItem;          // strong (we create/own it); set to nil to release
@@ -43,6 +43,18 @@ typedef enum : NSInteger {
 	// via NSUserDefaultsDidChangeNotification. See -userDefaultsDidChange:.
 	NSDictionary *lastKnownDefaultsSnapshot;
 	BOOL applyingPerformancePreset;   // guards against our OWN preset-apply writes re-triggering Custom
+
+	// History tab (F37, built in code — see -buildHistoryTab). All weak: owned by the
+	// History tab's view hierarchy, kept here only so refresh methods can update them.
+	__weak NSButton *historyEnableCheckbox;
+	__weak NSSlider *historyRetentionSlider;
+	__weak NSTextField *historyRetentionLabel;
+	__weak NSStackView *historyModulesStack;
+	__weak NSTableView *historyTableView;
+
+	// Snapshot of history entries currently backing historyTableView (rebuilt by
+	// -refreshHistoryTable each time the History tab is shown or history changes).
+	NSArray *historyEntriesCache;
 }
 
 @property (nonatomic, strong) IBOutlet NSString *showDevices;
@@ -71,6 +83,9 @@ typedef enum : NSInteger {
 @property (nonatomic, weak) IBOutlet NSToolbar *toolbar;
 @property (nonatomic, weak) IBOutlet NSToolbarItem *generalItem;
 @property (nonatomic, weak) IBOutlet NSToolbarItem *modulesItem;
+// Not from the nib (History tab is built entirely in code, see -buildHistoryTab) — strong,
+// since nothing else would keep it alive between toolbar layout passes otherwise.
+@property (nonatomic, strong) NSToolbarItem *historyItem;
 @property (nonatomic, weak) IBOutlet NSTabView *tabView;
 @property (nonatomic, weak) IBOutlet NSTableColumn *moduleColumn;
 @property (nonatomic, weak) IBOutlet NSTableView *tableView;

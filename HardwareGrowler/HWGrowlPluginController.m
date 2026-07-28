@@ -8,6 +8,7 @@
 
 // compile with ARC: -fobjc-arc
 #import "HWGrowlPluginController.h"
+#import "HWGNotificationHistoryStore.h"
 
 //DO NOT TOUCH, FOR KEEPING LOCALIZATION SCRIPT SIMPLER
 #define GrowlOffSwitchFake NSLocalizedString(@"OFF", @"If the string is too long, use O");
@@ -259,7 +260,24 @@
 	if(context && plugin && [context rangeOfString:@" : "].location == NSNotFound) {
 		contextCombined = [NSString stringWithFormat:@"%@ : %@", NSStringFromClass([plugin class]), context];
 	}
-	
+
+	// F37: optional notification history — off by default, and per-module even when the
+	// master switch is on. Recorded here (not earlier) so history only ever reflects
+	// notifications that actually made it past the disabled-plugin/dedup checks above —
+	// the same set the user actually sees.
+	if ([[NSUserDefaults standardUserDefaults] boolForKey:@"HWGHistoryEnabled"]) {
+		NSString *bundleID = [[NSBundle bundleForClass:[plugin class]] bundleIdentifier];
+		NSDictionary *historyModules = [[NSUserDefaults standardUserDefaults] objectForKey:@"HWGHistoryEnabledModules"];
+		if (bundleID && [[historyModules objectForKey:bundleID] boolValue]) {
+			NSString *displayName = [plugin respondsToSelector:@selector(pluginDisplayName)]
+				? [plugin pluginDisplayName] : bundleID;
+			[[HWGNotificationHistoryStore sharedStore] addEntryWithModuleBundleID:bundleID
+															   moduleDisplayName:displayName
+																			title:title
+																			 body:description];
+		}
+	}
+
     [GrowlApplicationBridge	notifyWithTitle:title
 										 description:description
 								  notificationName:name 

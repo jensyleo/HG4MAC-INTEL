@@ -108,12 +108,25 @@ static NSDictionary<NSString*, HWGPrinterInfo*> *HWGCollectPrinterInfo(void) {
 	return result;
 }
 
-// Whether a printer-state-reasons string indicates an actual problem — "none" (the IPP
-// keyword for "nothing to report") is the only value that means everything's fine; anything
-// else (…-error or …-warning keywords, comma-separated) is worth surfacing. This is a
-// heuristic reading of a standard IPP value, not a CUPS-internal API.
+// Whether a printer-state-reasons string indicates an actual problem. Per the IPP spec
+// (RFC 8011 §5.4.12), each comma-separated keyword carries its own severity as a suffix:
+// "-error" (blocks printing), "-warning" (degraded but still working), or no suffix at all
+// ("-report", purely informational — e.g. "connecting-to-device", which just means the
+// printer/driver is opening the connection to send a job, a completely normal part of
+// printing over network/WiFi, not something to "check the printer" about).
+//
+// BUG FIX (27-jul-2026): this used to treat ANY reason other than the literal "none" as a
+// problem — including plain "-report"-level keywords. Confirmed live over WiFi printing:
+// the printer reports "connecting-to-device" while a job starts, which isn't a suffixed
+// keyword at all, so the old code fired a false "Printer Needs Attention", then a false
+// "Printer OK" once the job finished and the reason cleared — both about a normal print,
+// not an actual problem. Fixed to only match "-error"/"-warning" suffixes, per spec.
 static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
-	return [reasons length] && ![reasons isEqualToString:@"none"];
+	if (![reasons length] || [reasons isEqualToString:@"none"]) return NO;
+	for (NSString *reason in [reasons componentsSeparatedByString:@","]) {
+		if ([reason hasSuffix:@"-error"] || [reason hasSuffix:@"-warning"]) return YES;
+	}
+	return NO;
 }
 
 @interface HWGrowlPrinterMonitor ()

@@ -4,6 +4,43 @@ All notable changes made in this fork on top of
 [`pranav-prakash/HardwareGrowler-NC`](https://github.com/pranav-prakash/HardwareGrowler-NC).
 Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-series)**.
 
+## 2026-07-27
+
+### New: notification history (Preferences → History)
+- A new "History" tab (alongside General/Modules) optionally keeps a record of
+  notifications the app fires, **off by default**.
+- Configurable retention window, 1–30 days (slider), pruned automatically.
+- Per-module opt-in: the module checklist lists every monitor, active or not (inactive
+  ones shown disabled/unchecked, since a disabled monitor never fires anything to record
+  anyway). Turning a monitor off (manually, or via the Minimal/All performance preset)
+  automatically clears its history checkbox if it was on.
+- Three bulk actions above the module list: **Select All**, **Select None**, and
+  **Select Active Modules** (checks only monitors currently enabled, unchecks the rest —
+  a one-click reset to the sensible default).
+- "Clear History…" permanently deletes every saved entry, with a confirmation prompt.
+- Recording happens at the single choke point all notifications already pass through
+  (`HWGrowlPluginController`'s `notifyWithName:...`), so history only ever reflects what
+  the user actually saw — after disabled-module and duplicate-suppression checks, not
+  before.
+- Storage: a plain JSON file in Application Support (no Core Data/SQLite — entry volume
+  is low, consistent with how the rest of the app avoids a database dependency), written
+  from a private serial queue for thread safety.
+- **New files**: `HardwareGrowler/HWGNotificationHistoryStore.h/.m`.
+
+### Fix: Printer Monitor misreported normal network printing as a device problem
+- `printer-state-reasons` (the IPP-standard field this app already reads for the optional
+  "notify when a printer needs attention" toggle) carries a severity suffix per the IPP
+  spec (RFC 8011 §5.4.12): `-error` (blocks printing), `-warning` (degraded), or no suffix
+  at all (purely informational). The problem-detection check here treated ANY reason
+  other than the literal `none` as a problem — including plain informational keywords.
+- Confirmed live printing over Wi-Fi: printers report `connecting-to-device` (no
+  suffix — just "opening the connection to send the job", a normal part of network
+  printing) while a job starts. The old check fired a false "Printer Needs Attention" for
+  this, then a false "Printer OK" once the job finished and the reason cleared — both
+  about an entirely normal print, not an actual fault.
+- Fixed to only treat `-error`/`-warning`-suffixed reasons as a real problem, matching
+  what the surrounding code comment already claimed to do.
+
 ## 2026-07-24
 
 ### Fix: notification banners silently lost during a burst at launch

@@ -11,6 +11,7 @@
 #import "GrowlOnSwitch.h"
 #import "HWGrowlPluginController.h"
 #import "HWGImageTextCell.h"
+#import "HWGNotificationHistoryStore.h"
 #import <ServiceManagement/ServiceManagement.h>
 #import <UserNotifications/UserNotifications.h>
 #import <CoreBluetooth/CoreBluetooth.h>
@@ -126,7 +127,11 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 																				[NSNumber numberWithBool:NO], @"OnLogin",
 																				[NSNumber numberWithBool:YES], @"ShowExisting",
 																				[NSNumber numberWithBool:NO], @"GroupNetwork",
-																				[NSNumber numberWithInteger:0], @"Visibility", nil]];
+																				[NSNumber numberWithInteger:0], @"Visibility",
+																				// F37: notification history — off by default; when off, no per-module
+																				// choice matters and nothing is recorded regardless of the per-module dict.
+																				[NSNumber numberWithBool:NO], @"HWGHistoryEnabled",
+																				[NSNumber numberWithInteger:7], @"HWGHistoryRetentionDays", nil]];
 	[[NSUserDefaults standardUserDefaults] synchronize];
 	[super initialize];
 }
@@ -172,6 +177,7 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 
 	self.pluginController = [[HWGrowlPluginController alloc] init];
 	[self buildPerformanceSection];
+	[self buildHistoryTab];
 	[self startObservingDefaultsForCustomModeDetection];
 
 	// The currently-selected monitor's prefs pane is sized to match containerView's frame
@@ -452,6 +458,19 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 		[[self toolbar] insertItemWithItemIdentifier:@"General" atIndex:0];
 		[[self toolbar] insertItemWithItemIdentifier:@"Modules" atIndex:1];
 	}
+	// "History" is checked independently of the block above: on this build, "General"/
+	// "Modules" already come pre-populated as part of the toolbar's own nib-defined
+	// configuration (confirmed via logging — [[self toolbar] items] has count=2 even
+	// BEFORE any insert call runs here), so the `count == 0` gate above never actually
+	// fires for a normal launch and a brand-new identifier like "History" would silently
+	// never get inserted if it relied on that same gate.
+	BOOL hasHistoryItem = NO;
+	for (NSToolbarItem *item in [[self toolbar] items]) {
+		if ([item.itemIdentifier isEqualToString:@"History"]) { hasHistoryItem = YES; break; }
+	}
+	if (!hasHistoryItem) {
+		[[self toolbar] insertItemWithItemIdentifier:@"History" atIndex:[[[self toolbar] items] count]];
+	}
 	[self selectTabIndex:0];
 	[self initTitles];
 		
@@ -730,6 +749,358 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 	return radio;
 }
 
+#pragma mark History tab (F37)
+
+// Unlike the Modules tab (which reuses two nib-authored subviews), this tab's
+// NSTabViewItem/view are both created here from scratch — no legacy geometry to
+// preserve, so this is plain Auto Layout from the start, top-down.
+- (void)buildHistoryTab {
+	NSView *historyView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 380, 300)];
+
+	NSTabViewItem *historyTabItem = [[NSTabViewItem alloc] initWithIdentifier:@"History"];
+	historyTabItem.label = NSLocalizedString(@"History", @"");
+	historyTabItem.view = historyView;
+	[tabView addTabViewItem:historyTabItem];
+
+	BOOL historyEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"HWGHistoryEnabled"];
+	NSInteger retentionDays = [[NSUserDefaults standardUserDefaults] integerForKey:@"HWGHistoryRetentionDays"];
+	if (retentionDays < 1 || retentionDays > 30) retentionDays = 7;
+
+	NSButton *enableCheckbox = [NSButton checkboxWithTitle:NSLocalizedString(@"Keep a history of notifications", @"")
+													 target:self action:@selector(historyEnableChanged:)];
+	enableCheckbox.state = historyEnabled ? NSControlStateValueOn : NSControlStateValueOff;
+	enableCheckbox.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:enableCheckbox];
+	historyEnableCheckbox = enableCheckbox;
+
+	NSTextField *retentionLabel = [NSTextField labelWithString:NSLocalizedString(@"Keep for:", @"")];
+	retentionLabel.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:retentionLabel];
+
+	NSSlider *retentionSlider = [NSSlider sliderWithValue:retentionDays minValue:1 maxValue:30
+													 target:self action:@selector(historyRetentionChanged:)];
+	retentionSlider.allowsTickMarkValuesOnly = YES;
+	retentionSlider.numberOfTickMarks = 30;
+	retentionSlider.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:retentionSlider];
+	historyRetentionSlider = retentionSlider;
+
+	NSTextField *retentionValueLabel = [NSTextField labelWithString:[self historyRetentionValueString:retentionDays]];
+	retentionValueLabel.translatesAutoresizingMaskIntoConstraints = NO;
+	retentionValueLabel.alignment = NSTextAlignmentRight;
+	[historyView addSubview:retentionValueLabel];
+	historyRetentionLabel = retentionValueLabel;
+
+	NSTextField *modulesHeader = [NSTextField labelWithString:NSLocalizedString(@"Save history for:", @"")];
+	modulesHeader.font = [NSFont boldSystemFontOfSize:12];
+	modulesHeader.textColor = [NSColor secondaryLabelColor];
+	modulesHeader.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:modulesHeader];
+
+	// Bulk actions for the module checklist below — "Active modules" re-applies the
+	// sensible default (history only for monitors that are actually enabled right now)
+	// without the user having to click through every checkbox by hand.
+	NSButton *selectAllButton = [NSButton buttonWithTitle:NSLocalizedString(@"Select All", @"")
+													target:self action:@selector(selectAllHistoryModules:)];
+	selectAllButton.bezelStyle = NSBezelStyleRounded;
+	selectAllButton.controlSize = NSControlSizeSmall;
+	selectAllButton.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:selectAllButton];
+
+	NSButton *selectNoneButton = [NSButton buttonWithTitle:NSLocalizedString(@"Select None", @"")
+													 target:self action:@selector(selectNoneHistoryModules:)];
+	selectNoneButton.bezelStyle = NSBezelStyleRounded;
+	selectNoneButton.controlSize = NSControlSizeSmall;
+	selectNoneButton.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:selectNoneButton];
+
+	NSButton *selectActiveButton = [NSButton buttonWithTitle:NSLocalizedString(@"Select Active Modules", @"")
+													   target:self action:@selector(selectActiveHistoryModules:)];
+	selectActiveButton.bezelStyle = NSBezelStyleRounded;
+	selectActiveButton.controlSize = NSControlSizeSmall;
+	selectActiveButton.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:selectActiveButton];
+
+	NSStackView *modulesStack = [NSStackView new];
+	modulesStack.orientation = NSUserInterfaceLayoutOrientationVertical;
+	modulesStack.alignment = NSLayoutAttributeLeading;
+	modulesStack.spacing = 4;
+	modulesStack.translatesAutoresizingMaskIntoConstraints = NO;
+
+	NSClipView *modulesClip = [[NSClipView alloc] init];
+	modulesClip.documentView = modulesStack;
+	modulesClip.translatesAutoresizingMaskIntoConstraints = NO;
+
+	NSScrollView *modulesScroll = [[NSScrollView alloc] init];
+	modulesScroll.contentView = modulesClip;
+	modulesScroll.hasVerticalScroller = YES;
+	modulesScroll.borderType = NSBezelBorder;
+	modulesScroll.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:modulesScroll];
+	historyModulesStack = modulesStack;
+
+	NSTextField *entriesHeader = [NSTextField labelWithString:NSLocalizedString(@"Recent notifications:", @"")];
+	entriesHeader.font = [NSFont boldSystemFontOfSize:12];
+	entriesHeader.textColor = [NSColor secondaryLabelColor];
+	entriesHeader.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:entriesHeader];
+
+	NSButton *clearButton = [NSButton buttonWithTitle:NSLocalizedString(@"Clear History…", @"")
+												target:self action:@selector(clearHistoryClicked:)];
+	clearButton.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:clearButton];
+
+	NSTableView *table = [[NSTableView alloc] init];
+	table.dataSource = self;
+	table.delegate = self;
+	table.usesAlternatingRowBackgroundColors = YES;
+
+	NSTableColumn *dateCol = [[NSTableColumn alloc] initWithIdentifier:@"HistoryDate"];
+	dateCol.title = NSLocalizedString(@"Date", @"");
+	dateCol.width = 130;
+	[table addTableColumn:dateCol];
+
+	NSTableColumn *moduleCol = [[NSTableColumn alloc] initWithIdentifier:@"HistoryModule"];
+	moduleCol.title = NSLocalizedString(@"Module", @"");
+	moduleCol.width = 90;
+	[table addTableColumn:moduleCol];
+
+	NSTableColumn *notifCol = [[NSTableColumn alloc] initWithIdentifier:@"HistoryNotification"];
+	notifCol.title = NSLocalizedString(@"Notification", @"");
+	notifCol.width = 200;
+	[table addTableColumn:notifCol];
+
+	NSScrollView *tableScroll = [[NSScrollView alloc] init];
+	tableScroll.documentView = table;
+	tableScroll.hasVerticalScroller = YES;
+	tableScroll.borderType = NSBezelBorder;
+	tableScroll.translatesAutoresizingMaskIntoConstraints = NO;
+	[historyView addSubview:tableScroll];
+	historyTableView = table;
+
+	[NSLayoutConstraint activateConstraints:@[
+		[enableCheckbox.topAnchor      constraintEqualToAnchor:historyView.topAnchor constant:16],
+		[enableCheckbox.leadingAnchor  constraintEqualToAnchor:historyView.leadingAnchor constant:16],
+
+		[retentionLabel.topAnchor     constraintEqualToAnchor:enableCheckbox.bottomAnchor constant:10],
+		[retentionLabel.leadingAnchor constraintEqualToAnchor:enableCheckbox.leadingAnchor],
+
+		[retentionSlider.centerYAnchor  constraintEqualToAnchor:retentionLabel.centerYAnchor],
+		[retentionSlider.leadingAnchor  constraintEqualToAnchor:retentionLabel.trailingAnchor constant:8],
+		[retentionSlider.widthAnchor    constraintEqualToConstant:180],
+
+		[retentionValueLabel.centerYAnchor  constraintEqualToAnchor:retentionLabel.centerYAnchor],
+		[retentionValueLabel.leadingAnchor  constraintEqualToAnchor:retentionSlider.trailingAnchor constant:8],
+		[retentionValueLabel.widthAnchor    constraintEqualToConstant:56],
+
+		[modulesHeader.topAnchor     constraintEqualToAnchor:retentionLabel.bottomAnchor constant:14],
+		[modulesHeader.leadingAnchor constraintEqualToAnchor:enableCheckbox.leadingAnchor],
+
+		[selectActiveButton.centerYAnchor  constraintEqualToAnchor:modulesHeader.centerYAnchor],
+		[selectActiveButton.trailingAnchor constraintEqualToAnchor:historyView.trailingAnchor constant:-16],
+
+		[selectNoneButton.centerYAnchor  constraintEqualToAnchor:modulesHeader.centerYAnchor],
+		[selectNoneButton.trailingAnchor constraintEqualToAnchor:selectActiveButton.leadingAnchor constant:-6],
+
+		[selectAllButton.centerYAnchor  constraintEqualToAnchor:modulesHeader.centerYAnchor],
+		[selectAllButton.trailingAnchor constraintEqualToAnchor:selectNoneButton.leadingAnchor constant:-6],
+
+		[modulesScroll.topAnchor      constraintEqualToAnchor:modulesHeader.bottomAnchor constant:6],
+		[modulesScroll.leadingAnchor  constraintEqualToAnchor:historyView.leadingAnchor constant:16],
+		[modulesScroll.trailingAnchor constraintEqualToAnchor:historyView.trailingAnchor constant:-16],
+		[modulesScroll.heightAnchor   constraintEqualToConstant:110],
+
+		[entriesHeader.topAnchor     constraintEqualToAnchor:modulesScroll.bottomAnchor constant:14],
+		[entriesHeader.leadingAnchor constraintEqualToAnchor:enableCheckbox.leadingAnchor],
+
+		[clearButton.centerYAnchor  constraintEqualToAnchor:entriesHeader.centerYAnchor],
+		[clearButton.trailingAnchor constraintEqualToAnchor:historyView.trailingAnchor constant:-16],
+
+		[tableScroll.topAnchor      constraintEqualToAnchor:entriesHeader.bottomAnchor constant:6],
+		[tableScroll.leadingAnchor  constraintEqualToAnchor:historyView.leadingAnchor constant:16],
+		[tableScroll.trailingAnchor constraintEqualToAnchor:historyView.trailingAnchor constant:-16],
+		[tableScroll.bottomAnchor   constraintEqualToAnchor:historyView.bottomAnchor constant:-16],
+
+		[modulesStack.leadingAnchor  constraintEqualToAnchor:modulesClip.leadingAnchor constant:6],
+		[modulesStack.topAnchor      constraintEqualToAnchor:modulesClip.topAnchor constant:4],
+		[modulesStack.trailingAnchor constraintLessThanOrEqualToAnchor:modulesClip.trailingAnchor constant:-6],
+	]];
+
+	[self setHistoryControlsEnabled:historyEnabled];
+	[self refreshHistoryModuleList];
+	[self refreshHistoryTable];
+}
+
+- (NSString *)historyRetentionValueString:(NSInteger)days {
+	return [NSString stringWithFormat:(days == 1)
+		? NSLocalizedString(@"%ld day", @"")
+		: NSLocalizedString(@"%ld days", @""), (long)days];
+}
+
+- (void)setHistoryControlsEnabled:(BOOL)enabled {
+	historyRetentionSlider.enabled = enabled;
+	historyRetentionLabel.textColor = enabled ? [NSColor labelColor] : [NSColor disabledControlTextColor];
+	for (NSView *row in historyModulesStack.views) {
+		if ([row isKindOfClass:[NSButton class]]) ((NSButton *)row).enabled = enabled;
+	}
+}
+
+-(IBAction)historyEnableChanged:(NSButton *)sender {
+	BOOL enabled = (sender.state == NSControlStateValueOn);
+	[[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"HWGHistoryEnabled"];
+	[self setHistoryControlsEnabled:enabled];
+}
+
+-(IBAction)historyRetentionChanged:(NSSlider *)sender {
+	NSInteger days = (NSInteger)lround(sender.doubleValue);
+	[[NSUserDefaults standardUserDefaults] setInteger:days forKey:@"HWGHistoryRetentionDays"];
+	historyRetentionLabel.stringValue = [self historyRetentionValueString:days];
+	[[HWGNotificationHistoryStore sharedStore] pruneOlderThanDays:days];
+}
+
+// Rebuilds the module checklist — lists EVERY monitor, not just currently-enabled ones
+// (a monitor disabled in the Modules tab still gets a checkbox here, just visually
+// disabled/unchecked, since -reconcileHistoryModulesAgainstDisabledPlugins: already
+// clears its history flag the moment it's turned off): this way "Select All" / "Select
+// None" / "Select Active Modules" below are three genuinely different bulk actions
+// instead of "Select Active Modules" being a no-op duplicate of "Select All". Each
+// checkbox's tag doubles as an "is this module currently active" flag (1/0) so the bulk
+// actions can tell them apart without re-querying `plugins`.
+- (void)refreshHistoryModuleList {
+	for (NSView *row in [historyModulesStack.views copy]) {
+		[historyModulesStack removeView:row];
+	}
+
+	NSDictionary *historyModules = [[NSUserDefaults standardUserDefaults] objectForKey:@"HWGHistoryEnabledModules"] ?: @{};
+	BOOL historyEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"HWGHistoryEnabled"];
+
+	for (NSMutableDictionary *pluginDict in [pluginController plugins]) {
+		id<HWGrowlPluginProtocol> plugin = [pluginDict objectForKey:@"plugin"];
+		NSString *bundleID = [[NSBundle bundleForClass:[plugin class]] bundleIdentifier];
+		if (!bundleID) continue;
+		BOOL moduleActive = ![[pluginDict objectForKey:@"disabled"] boolValue];
+
+		NSButton *checkbox = [NSButton checkboxWithTitle:[plugin pluginDisplayName]
+												   target:self action:@selector(historyModuleCheckboxChanged:)];
+		checkbox.identifier = bundleID;
+		checkbox.tag = moduleActive ? 1 : 0;
+		checkbox.state = [[historyModules objectForKey:bundleID] boolValue] ? NSControlStateValueOn : NSControlStateValueOff;
+		checkbox.enabled = historyEnabled && moduleActive;
+		[historyModulesStack addView:checkbox inGravity:NSStackViewGravityTop];
+	}
+}
+
+-(IBAction)historyModuleCheckboxChanged:(NSButton *)sender {
+	NSString *bundleID = sender.identifier;
+	if (!bundleID) return;
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	NSMutableDictionary *historyModules = [[defaults objectForKey:@"HWGHistoryEnabledModules"] mutableCopy] ?: [NSMutableDictionary dictionary];
+	[historyModules setObject:@(sender.state == NSControlStateValueOn) forKey:bundleID];
+	[defaults setObject:historyModules forKey:@"HWGHistoryEnabledModules"];
+}
+
+// Bulk actions for the module checklist — build the whole "HWGHistoryEnabledModules"
+// dict in one pass and write it once, rather than driving each checkbox through
+// -historyModuleCheckboxChanged: individually (which would mean N separate defaults
+// writes for N modules).
+- (void)applyHistoryModuleSelection:(BOOL (^)(NSButton *checkbox))shouldEnable {
+	NSMutableDictionary *historyModules = [[[NSUserDefaults standardUserDefaults] objectForKey:@"HWGHistoryEnabledModules"] mutableCopy] ?: [NSMutableDictionary dictionary];
+	for (NSButton *checkbox in historyModulesStack.views) {
+		if (![checkbox isKindOfClass:[NSButton class]]) continue;
+		BOOL enable = shouldEnable(checkbox);
+		checkbox.state = enable ? NSControlStateValueOn : NSControlStateValueOff;
+		if (checkbox.identifier) [historyModules setObject:@(enable) forKey:checkbox.identifier];
+	}
+	[[NSUserDefaults standardUserDefaults] setObject:historyModules forKey:@"HWGHistoryEnabledModules"];
+}
+
+-(IBAction)selectAllHistoryModules:(id)sender {
+	[self applyHistoryModuleSelection:^BOOL(NSButton *checkbox) { return YES; }];
+}
+
+-(IBAction)selectNoneHistoryModules:(id)sender {
+	[self applyHistoryModuleSelection:^BOOL(NSButton *checkbox) { return NO; }];
+}
+
+-(IBAction)selectActiveHistoryModules:(id)sender {
+	[self applyHistoryModuleSelection:^BOOL(NSButton *checkbox) { return checkbox.tag == 1; }];
+}
+
+-(IBAction)clearHistoryClicked:(id)sender {
+	NSAlert *alert = [[NSAlert alloc] init];
+	alert.messageText = NSLocalizedString(@"Clear notification history?", @"");
+	alert.informativeText = NSLocalizedString(@"This permanently deletes every saved notification. This can't be undone.", @"");
+	[alert addButtonWithTitle:NSLocalizedString(@"Clear History", @"")];
+	[alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"")];
+	alert.buttons.lastObject.keyEquivalent = @"\033";   // Escape cancels, matches other destructive confirms in this app
+
+	if ([alert runModal] == NSAlertFirstButtonReturn) {
+		[[HWGNotificationHistoryStore sharedStore] clearAll];
+		[self refreshHistoryTable];
+	}
+}
+
+- (void)refreshHistoryTable {
+	NSInteger retentionDays = [[NSUserDefaults standardUserDefaults] integerForKey:@"HWGHistoryRetentionDays"];
+	if (retentionDays < 1 || retentionDays > 30) retentionDays = 7;
+	[[HWGNotificationHistoryStore sharedStore] pruneOlderThanDays:retentionDays];
+	historyEntriesCache = [[HWGNotificationHistoryStore sharedStore] allEntries];
+	[historyTableView reloadData];
+}
+
+// Whenever a module ends up disabled (manual checkbox OR a Performance preset), its history
+// choice must go with it — an off module never notifies, so a stale "keep history" checkbox
+// for it would be misleading and could look like a bug ("I turned this off, why does History
+// still show a checkbox for it?"). Re-enabling the module later starts it unchecked again;
+// this is a one-way clear, by design, not a toggle to restore.
+- (void)reconcileHistoryModulesAgainstDisabledPlugins:(NSDictionary *)disabledDict {
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	NSMutableDictionary *historyModules = [[defaults objectForKey:@"HWGHistoryEnabledModules"] mutableCopy];
+	if (!historyModules.count) return;
+
+	BOOL changed = NO;
+	for (NSString *bundleID in disabledDict) {
+		if ([[disabledDict objectForKey:bundleID] boolValue] && [[historyModules objectForKey:bundleID] boolValue]) {
+			[historyModules setObject:@NO forKey:bundleID];
+			changed = YES;
+		}
+	}
+	if (changed) [defaults setObject:historyModules forKey:@"HWGHistoryEnabledModules"];
+}
+
+#pragma mark History table data source
+
+// The Modules table's row count comes entirely from an NSArrayController "contentArray"
+// binding in the nib (self.pluginController.plugins) — it never calls this classic
+// dataSource method at all, so implementing it here only affects historyTableView, which
+// this file sets as its own explicit `dataSource`.
+- (NSInteger)numberOfRowsInTableView:(NSTableView *)tv {
+	if (tv != historyTableView) return 0;
+	return historyEntriesCache.count;
+}
+
+- (NSString *)historyStringValueForColumn:(NSTableColumn *)tableColumn row:(NSInteger)row {
+	if (row < 0 || (NSUInteger)row >= historyEntriesCache.count) return nil;
+	HWGNotificationHistoryEntry *entry = historyEntriesCache[row];
+
+	if ([tableColumn.identifier isEqualToString:@"HistoryDate"]) {
+		static NSDateFormatter *formatter = nil;
+		if (!formatter) {
+			formatter = [NSDateFormatter new];
+			formatter.dateStyle = NSDateFormatterShortStyle;
+			formatter.timeStyle = NSDateFormatterShortStyle;
+		}
+		return [formatter stringFromDate:entry.date];
+	}
+	if ([tableColumn.identifier isEqualToString:@"HistoryModule"]) {
+		return entry.moduleDisplayName;
+	}
+	if ([tableColumn.identifier isEqualToString:@"HistoryNotification"]) {
+		return entry.body.length ? [NSString stringWithFormat:@"%@ — %@", entry.title, entry.body] : entry.title;
+	}
+	return nil;
+}
+
 -(IBAction)performanceModeChanged:(NSButton*)sender {
 	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
 	HWGPerformanceMode mode = (HWGPerformanceMode)sender.tag;
@@ -786,6 +1157,8 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 	[defaults setObject:disabledDict forKey:@"DisabledPlugins"];
 	[defaults synchronize];
 	[tableView reloadData];
+	[self reconcileHistoryModulesAgainstDisabledPlugins:disabledDict];
+	[self refreshHistoryModuleList];
 
 	applyingPerformancePreset = NO;
 	lastKnownDefaultsSnapshot = [defaults dictionaryRepresentation];
@@ -895,6 +1268,8 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 		[disabledDict setObject:disabled forKey:identifier];
 		[defaults setObject:disabledDict forKey:@"DisabledPlugins"];
 		[defaults synchronize];
+		[self reconcileHistoryModulesAgainstDisabledPlugins:disabledDict];
+		[self refreshHistoryModuleList];
 
 		// A manual per-monitor change no longer matches whichever preset was selected
 		// (Minimal/All only ever change EVERY monitor together) — reflect that honestly.
@@ -938,6 +1313,9 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 }
 
 - (id) tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex {
+	if (aTableView == historyTableView) {
+		return [self historyStringValueForColumn:aTableColumn row:rowIndex];
+	}
 	if (aTableColumn == moduleColumn) {
 		id<HWGrowlPluginProtocol> plugin = [[[pluginController plugins] objectAtIndex:rowIndex] objectForKey:@"plugin"];
 		return [plugin pluginDisplayName];
@@ -967,10 +1345,17 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 #pragma mark Toolbar
 
 -(void)selectTabIndex:(NSInteger)tab {
-	if(tab < 0 || tab > 1)
+	if(tab < 0 || tab > 2)
 		tab = 0;
 	[toolbar setSelectedItemIdentifier:[NSString stringWithFormat:@"%ld", tab]];
 	[tabView selectTabViewItemAtIndex:tab];
+	// The module list can change (Modules tab) while Preferences stays open — refresh the
+	// History tab's own module checklist and entries every time it's actually shown, rather
+	// than trying to keep it live-synced in the background for a tab that isn't visible.
+	if (tab == 2) {
+		[self refreshHistoryModuleList];
+		[self refreshHistoryTable];
+	}
 }
 
 -(IBAction)selectTab:(id)sender {
@@ -981,19 +1366,36 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 	return YES;
 }
 
+// Only "History" needs this — "General"/"Modules" are toolbar item templates already
+// present in the nib, which NSToolbar resolves on its own without ever asking the delegate.
+- (NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSString *)itemIdentifier willBeInsertedIntoToolbar:(BOOL)flag {
+	if (![itemIdentifier isEqualToString:@"History"]) return nil;
+	if (!self.historyItem) {
+		NSToolbarItem *item = [[NSToolbarItem alloc] initWithItemIdentifier:@"History"];
+		item.label = NSLocalizedString(@"History", @"");
+		item.paletteLabel = item.label;
+		item.image = [NSImage imageWithSystemSymbolName:@"clock.arrow.circlepath" accessibilityDescription:item.label];
+		item.target = self;
+		item.action = @selector(selectTab:);
+		self.historyItem = item;
+	}
+	self.historyItem.tag = 2;
+	return self.historyItem;
+}
+
 -(NSArray*)toolbarSelectableItemIdentifiers:(NSToolbar*)aToolbar
 {
-	return [NSArray arrayWithObjects:@"0", @"1", nil];
+	return [NSArray arrayWithObjects:@"0", @"1", @"2", nil];
 }
 
 - (NSArray *)toolbarAllowedItemIdentifiers:(NSToolbar *)toolbar
 {
-   return [NSArray arrayWithObjects:@"0", @"1", nil];
+   return [NSArray arrayWithObjects:@"0", @"1", @"2", nil];
 }
 
-- (NSArray *)toolbarDefaultItemIdentifiers:(NSToolbar*)aToolbar 
+- (NSArray *)toolbarDefaultItemIdentifiers:(NSToolbar*)aToolbar
 {
-   return [NSArray arrayWithObjects:@"0", @"1", nil];
+   return [NSArray arrayWithObjects:@"0", @"1", @"2", nil];
 }
 
 @end

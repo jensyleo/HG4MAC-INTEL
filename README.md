@@ -57,6 +57,10 @@ Apple Silicon**, starting from the upstream linked above.
   | **Camera** | connect/disconnect for cameras on transports USB/Bluetooth Monitor don't already cover (same filtering logic as Audio, see below), plus a privacy-relevant "camera started/stopped being used by any app" signal (via CoreMediaIO, the same fact macOS's own camera-in-use indicator reflects) — reading it requires no camera/TCC permission, since it's hardware-state observation, not frame capture. |
   | **Gamepad** | game controller connect/disconnect, vendor name, controller category (e.g. DualSense/Xbox/MFi), player index, and battery level — reported even when USB/Bluetooth Monitor also announced the same physical connect generically, since the GameController framework exposes no transport type to filter on, and the controller-specific detail (category/battery/player) is new information regardless. Only recognizes officially HID-compliant controllers (PS4/PS5/Xbox/MFi) — see "Known limitations". |
   | **Printer** (off by default) | printer added/removed, detected for USB, Bluetooth, and network (IPP/AirPrint/Bonjour) printers alike — see "Known limitations" for how detection works and its caveats |
+- **Optional notification history** (Preferences → History, **off by default**) — keeps a
+  record of notifications with a configurable 1–30 day retention window, opt-in per
+  monitor (only monitors currently enabled can be selected), and a one-click "Clear
+  History" to wipe it.
 - **Duplicate suppression** and **"unstable device"** detection (flags a device that
   rapidly connects/disconnects).
 - **Modern macOS integration**: "Start at Login" via `SMAppService`, a custom-drawn

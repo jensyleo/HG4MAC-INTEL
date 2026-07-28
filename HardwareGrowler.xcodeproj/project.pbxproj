@@ -74,6 +74,7 @@
 		BCB8074F1551A6EA0088C69A /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BCB8074D1551A6EA0088C69A /* InfoPlist.strings */; };
 		BCB8076A1551A7510088C69A /* HWGrowlNetworkMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = BCB807691551A7510088C69A /* HWGrowlNetworkMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		BCB8076F1551A82B0088C69A /* HWGrowlPluginController.m in Sources */ = {isa = PBXBuildFile; fileRef = BCB8076E1551A82A0088C69A /* HWGrowlPluginController.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		A500019D4CE7C95958C7F7D4 /* HWGNotificationHistoryStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		BCD4756A156BCDD000F81910 /* HWGImageTextCell.m in Sources */ = {isa = PBXBuildFile; fileRef = BCD47569156BCDD000F81910 /* HWGImageTextCell.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		BCE06FFC178CCBF500D7839A /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = BC4FC626155C05C700EE65EC /* Localizable.strings */; };
 		BCE3BC1C15C9619000B0BFFB /* TMSliderControl.m in Sources */ = {isa = PBXBuildFile; fileRef = BCE3BC1B15C9619000B0BFFB /* TMSliderControl.m */; };
@@ -450,6 +451,8 @@
 		BCB8076B1551A7820088C69A /* HardwareGrowlPlugin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = HardwareGrowlPlugin.h; path = ../HardwareGrowler/HardwareGrowlPlugin.h; sourceTree = "<group>"; };
 		BCB8076D1551A82A0088C69A /* HWGrowlPluginController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = HWGrowlPluginController.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		BCB8076E1551A82A0088C69A /* HWGrowlPluginController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HWGrowlPluginController.m; sourceTree = "<group>"; };
+		0611B5A901C5502D6927AA52 /* HWGNotificationHistoryStore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HWGNotificationHistoryStore.h; sourceTree = "<group>"; };
+		1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HWGNotificationHistoryStore.m; sourceTree = "<group>"; };
 		BCD47568156BCDD000F81910 /* HWGImageTextCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = HWGImageTextCell.h; path = ../Common/Source/HWGImageTextCell.h; sourceTree = "<group>"; };
 		BCD47569156BCDD000F81910 /* HWGImageTextCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = HWGImageTextCell.m; path = ../Common/Source/HWGImageTextCell.m; sourceTree = "<group>"; };
 		BCE3BC1A15C9619000B0BFFB /* TMSliderControl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TMSliderControl.h; path = ../external_dependencies/tmslidercontrol/TMSliderControl.h; sourceTree = "<group>"; };
@@ -851,6 +854,8 @@
 				BCB805FE155153330088C69A /* AppDelegate.m */,
 				BCB8076D1551A82A0088C69A /* HWGrowlPluginController.h */,
 				BCB8076E1551A82A0088C69A /* HWGrowlPluginController.m */,
+				0611B5A901C5502D6927AA52 /* HWGNotificationHistoryStore.h */,
+				1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */,
 				BCB807701551AB500088C69A /* External */,
 				BCB805F2155153330088C69A /* Supporting Files */,
 			);
@@ -1757,6 +1762,7 @@
 				BCB805FF155153330088C69A /* AppDelegate.m in Sources */,
 				BCB806F8155178340088C69A /* GrowlOnSwitch.m in Sources */,
 				BCB8076F1551A82B0088C69A /* HWGrowlPluginController.m in Sources */,
+				A500019D4CE7C95958C7F7D4 /* HWGNotificationHistoryStore.m in Sources */,
 				AA000001000000000000AA01 /* GrowlApplicationBridge.m in Sources */,
 				BCD4756A156BCDD000F81910 /* HWGImageTextCell.m in Sources */,
 				BCE3BC1C15C9619000B0BFFB /* TMSliderControl.m in Sources */,
