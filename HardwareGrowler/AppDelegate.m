@@ -576,6 +576,26 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
     // General > Login Items (and "App background activity") and is user-managed.
     if (@available(macOS 13.0, *)) {
         SMAppService *svc = [SMAppService mainAppService];
+
+        // Guard against redundant register() calls. Without a stable Developer ID
+        // signature (ad-hoc builds have none), each rebuilt/reinstalled binary carries a
+        // different code hash, and SMAppService/Background Task Management can end up
+        // treating it as a distinct login item rather than updating the existing
+        // registration — repeated toggling (or a Preferences reopen re-running this path)
+        // was observed to accumulate orphaned entries in System Settings > Login Items.
+        // Skipping a call that would just re-confirm the already-correct state removes
+        // one real source of that: it can't fully prevent duplication across DIFFERENT
+        // binary rebuilds, but it stops this method from adding more on its own.
+        SMAppServiceStatus currentStatus = svc.status;
+        BOOL alreadyInDesiredState = enabled
+            ? (currentStatus == SMAppServiceStatusEnabled)
+            : (currentStatus == SMAppServiceStatusNotRegistered);
+        if (alreadyInDesiredState) {
+            NSLog(@"HWG setStartAtLogin: already %@ (status=%ld), skipping redundant call",
+                  enabled ? @"registered" : @"unregistered", (long)currentStatus);
+            return;
+        }
+
         NSError *err = nil;
         BOOL ok = enabled ? [svc registerAndReturnError:&err]
                           : [svc unregisterAndReturnError:&err];
