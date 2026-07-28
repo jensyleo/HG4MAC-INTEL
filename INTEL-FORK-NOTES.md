@@ -5,6 +5,36 @@ that does **not** apply to the upstream Apple Silicon build
 ([`jensyleo/HG4MAC`](https://github.com/jensyleo/HG4MAC)). Kept in its own file (not
 `README.md`/`CHANGELOG.md`) so that merging upstream changes doesn't create conflicts here.
 
+## Download / update
+
+Prebuilt `.zip`: see [Releases](https://github.com/jensyleo/HG4MAC-INTEL/releases/latest)
+— download it, unzip, drag `HG4MAC.app` into `/Applications` (replacing the old one if
+updating). Ad-hoc signed, not notarized: right-click → **Open** on first launch to bypass
+Gatekeeper's "unidentified developer" warning.
+
+**Every release from here on should ship the same way** — Debug builds during development,
+but the artifact actually handed to a user (including "future me on this same Mac") should
+always be a Release-configuration build packaged as a GitHub Release, same as upstream does
+it. To cut one:
+
+```sh
+# 1. Build Release (the NetworkMonitor SDK workaround from README's "Sandbox build
+#    caveat" still applies on this machine's older Xcode/SDK — patch, build, revert)
+xcodebuild -project HardwareGrowler.xcodeproj -scheme HardwareGrowler \
+           -configuration Release -arch x86_64 clean build
+
+# 2. Package (adjust the DerivedData path / version tag)
+ditto -c -k --sequesterRsrc --keepParent \
+      "$(xcodebuild -showBuildSettings -configuration Release 2>/dev/null | awk -F'= ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')/HG4MAC.app" \
+      HG4MAC-INTEL-vX.Y.Z.zip
+
+# 3. Tag and publish
+git tag -a vX.Y.Z-intel -m "..."
+git push origin vX.Y.Z-intel
+gh release create vX.Y.Z-intel HG4MAC-INTEL-vX.Y.Z.zip \
+  --repo jensyleo/HG4MAC-INTEL --title "..." --notes-file notes.md
+```
+
 ## Build
 
 - `xcconfig/Common.xcconfig`: `ARCHS`/`VALID_ARCHS` forced to `x86_64` (upstream ships
