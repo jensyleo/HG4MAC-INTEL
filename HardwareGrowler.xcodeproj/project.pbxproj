@@ -28,6 +28,12 @@
 		611AACBCBD130F1B08545540 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		650C5C466791A12422E68C56 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		73292A1EBEF889078FD97E7C /* HWGrowlPrinterMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 364B05255AE7966EB3FC727E /* HWGrowlPrinterMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		AC05D72AFBCEB310073A7E78 /* HWGrowlScannerMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 28836ADB028995789C65CA65 /* HWGrowlScannerMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		AABB00457BBB1B4C1DF230C1 /* HWGrowlScannerMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = 52E9D97D591BA41D19882DD0 /* HWGrowlScannerMonitor.h */; };
+		530101A413A9965A28A34EBC /* ScannerMonitor.bundle in Copy Plugins */ = {isa = PBXBuildFile; fileRef = 5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */; };
+		1B2F8D7B1479814F3AA17694 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		CB3272AB4F3EF8A299782D73 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		B17829C38BB662781E6009E4 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
 		767F7955642A7B3837652587 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
 		7D25EFA051FA85B2290A318C /* CoreMediaIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F583E88763D7AB0582931453 /* CoreMediaIO.framework */; };
 		80FFEC0D9781B3F2803A921B /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
@@ -325,6 +331,13 @@
 			remoteGlobalIDString = C5B823D438B01E02018E7935;
 			remoteInfo = PrinterMonitor;
 		};
+		BEA81CB46BD3E60746D96890 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BCB805DE155153330088C69A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3A7EF6544E27925EBC17DF4E;
+			remoteInfo = ScannerMonitor;
+		};
 		D1577DDC1317B105C2AF4033 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BCB805DE155153330088C69A /* Project object */;
@@ -370,6 +383,7 @@
 				2D3FD65FC252E022B2F3FAE2 /* CameraMonitor.hwgrowlmonitor in Copy Plugins */,
 				2306EFF017AF6FB84306056E /* GamepadMonitor.hwgrowlmonitor in Copy Plugins */,
 				BADA447A9F08AADEA608DE8D /* PrinterMonitor.bundle in Copy Plugins */,
+				530101A413A9965A28A34EBC /* ScannerMonitor.bundle in Copy Plugins */,
 			);
 			name = "Copy Plugins";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -378,6 +392,11 @@
 
 /* Begin PBXFileReference section */
 		002E18860471C7FA5DF3A775 /* PrinterMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; path = PrinterMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; path = ScannerMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		D044D03B0DE085825AB1ED37 /* ScannerMonitor-Prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "ScannerMonitor-Prefix.pch"; sourceTree = "<group>"; };
+		28836ADB028995789C65CA65 /* HWGrowlScannerMonitor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlScannerMonitor.m; sourceTree = "<group>"; };
+		52E9D97D591BA41D19882DD0 /* HWGrowlScannerMonitor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = HWGrowlScannerMonitor.h; sourceTree = "<group>"; };
+		45360ABDDFF4F20B5892D8CC /* ScannerMonitor-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "ScannerMonitor-Info.plist"; sourceTree = "<group>"; };
 		0611B5A901C5502D6927AA52 /* HWGNotificationHistoryStore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HWGNotificationHistoryStore.h; sourceTree = "<group>"; };
 		061E1C1E7865BA9423D1E7A9 /* CameraMonitor.hwgrowlmonitor */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; name = CameraMonitor.hwgrowlmonitor; path = CameraMonitor.hwgrowlmonitor; sourceTree = BUILT_PRODUCTS_DIR; };
 		177BD1B00DAE17A0562B1E5B /* CameraMonitor-Prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "CameraMonitor-Prefix.pch"; sourceTree = "<group>"; };
@@ -533,6 +552,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		634CE06688A9312399CE3013 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B17829C38BB662781E6009E4 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		3F1C3D9291A0ABCA9A3ABF40 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -834,6 +861,7 @@
 				061E1C1E7865BA9423D1E7A9 /* CameraMonitor.hwgrowlmonitor */,
 				26C644079E7A4E5D14DB48FE /* GamepadMonitor.hwgrowlmonitor */,
 				002E18860471C7FA5DF3A775 /* PrinterMonitor.bundle */,
+				5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1021,6 +1049,7 @@
 				D462F1B18B2F5AD0387CDD79 /* CameraMonitor */,
 				A4B68FFFCF66FB148C664D15 /* GamepadMonitor */,
 				CFBD5E6FDA8003E0A035B8D2 /* PrinterMonitor */,
+				750D1276C9E686F44EE08DAF /* ScannerMonitor */,
 			);
 			name = Plugins;
 			path = NetworkMonitor;
@@ -1105,6 +1134,18 @@
 			path = ../PrinterMonitor;
 			sourceTree = "<group>";
 		};
+		750D1276C9E686F44EE08DAF /* ScannerMonitor */ = {
+			isa = PBXGroup;
+			children = (
+				52E9D97D591BA41D19882DD0 /* HWGrowlScannerMonitor.h */,
+				28836ADB028995789C65CA65 /* HWGrowlScannerMonitor.m */,
+				45360ABDDFF4F20B5892D8CC /* ScannerMonitor-Info.plist */,
+				D044D03B0DE085825AB1ED37 /* ScannerMonitor-Prefix.pch */,
+			);
+			name = ScannerMonitor;
+			path = ../ScannerMonitor;
+			sourceTree = "<group>";
+		};
 		D159000BD159000BD159000B /* DisplayMonitor */ = {
 			isa = PBXGroup;
 			children = (
@@ -1142,6 +1183,14 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		B5DD0156429ECD3997FC6E20 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AABB00457BBB1B4C1DF230C1 /* HWGrowlScannerMonitor.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4BFF43609C609377B4345FDC /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -1283,6 +1332,7 @@
 				066E95EABB92966F57C4D9AA /* PBXTargetDependency */,
 				05FD36E13A1AEEB2D54B44B3 /* PBXTargetDependency */,
 				0A76BAFD2978A4390BEFF3C9 /* PBXTargetDependency */,
+				390C968D7B7E395C8EB42BDF /* PBXTargetDependency */,
 			);
 			name = HardwareGrowler;
 			productName = HardwareGrowler;
@@ -1373,6 +1423,24 @@
 			name = PrinterMonitor;
 			productName = PrinterMonitor;
 			productReference = 002E18860471C7FA5DF3A775 /* PrinterMonitor.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+		3A7EF6544E27925EBC17DF4E /* ScannerMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 70B33F088C3045A653B79CCD /* Build configuration list for PBXNativeTarget "ScannerMonitor" */;
+			buildPhases = (
+				869D79923A08D4A86D0FD1B5 /* Sources */,
+				634CE06688A9312399CE3013 /* Frameworks */,
+				9A1ECEA1C9D2133313F04748 /* Resources */,
+				B5DD0156429ECD3997FC6E20 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ScannerMonitor;
+			productName = ScannerMonitor;
+			productReference = 5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */;
 			productType = "com.apple.product-type.bundle";
 		};
 		D159000DD159000DD159000D /* DisplayMonitor */ = {
@@ -1488,6 +1556,7 @@
 				430A2DD2B8F357D36EC4FCD7 /* CameraMonitor */,
 				8B4A3E410A1A2C8789E134DE /* GamepadMonitor */,
 				C5B823D438B01E02018E7935 /* PrinterMonitor */,
+				3A7EF6544E27925EBC17DF4E /* ScannerMonitor */,
 			);
 		};
 /* End PBXProject section */
@@ -1622,6 +1691,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				B5E2918489E75576EF497D74 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9A1ECEA1C9D2133313F04748 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1897,6 +1973,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		869D79923A08D4A86D0FD1B5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC05D72AFBCEB310073A7E78 /* HWGrowlScannerMonitor.m in Sources */,
+				1B2F8D7B1479814F3AA17694 /* HWGIconOverrideStore.m in Sources */,
+				CB3272AB4F3EF8A299782D73 /* HWGIconPickerView.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1917,6 +2003,12 @@
 			name = PrinterMonitor;
 			target = C5B823D438B01E02018E7935 /* PrinterMonitor */;
 			targetProxy = C3D01FED7FDF6356A92D1FC2 /* PBXContainerItemProxy */;
+		};
+		390C968D7B7E395C8EB42BDF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = ScannerMonitor;
+			target = 3A7EF6544E27925EBC17DF4E /* ScannerMonitor */;
+			targetProxy = BEA81CB46BD3E60746D96890 /* PBXContainerItemProxy */;
 		};
 		1E03BA9B5D8196E2C78ED79B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2092,6 +2184,54 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		362863A62C8F0A5BA61BF5B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "ScannerMonitor/ScannerMonitor-Prefix.pch";
+				INFOPLIST_FILE = "ScannerMonitor/ScannerMonitor-Info.plist";
+				INFOPLIST_PREFIX_HEADER = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.ScannerMonitor;
+				PRODUCT_NAME = ScannerMonitor;
+				WRAPPER_EXTENSION = hwgrowlmonitor;
+			};
+			name = Release;
+		};
+		734DFF1E8CF4F945AFB05A30 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "ScannerMonitor/ScannerMonitor-Prefix.pch";
+				INFOPLIST_FILE = "ScannerMonitor/ScannerMonitor-Info.plist";
+				INFOPLIST_PREFIX_HEADER = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.ScannerMonitor;
+				PRODUCT_NAME = ScannerMonitor;
+				WRAPPER_EXTENSION = hwgrowlmonitor;
+			};
+			name = Debug;
+		};
+		71A7E73848EBC08B8F1A66D3 /* Localization */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "ScannerMonitor/ScannerMonitor-Prefix.pch";
+				INFOPLIST_FILE = "ScannerMonitor/ScannerMonitor-Info.plist";
+				INFOPLIST_PREFIX_HEADER = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.ScannerMonitor;
+				PRODUCT_NAME = ScannerMonitor;
+				WRAPPER_EXTENSION = hwgrowlmonitor;
+			};
+			name = Localization;
+		};
 		05FDF3C2AD73F1CD6A215787 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2939,6 +3079,16 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		70B33F088C3045A653B79CCD /* Build configuration list for PBXNativeTarget "ScannerMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				362863A62C8F0A5BA61BF5B1 /* Release */,
+				734DFF1E8CF4F945AFB05A30 /* Debug */,
+				71A7E73848EBC08B8F1A66D3 /* Localization */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		1187E5F8DE7C7FD4248D7E44 /* Build configuration list for PBXNativeTarget "AudioMonitor" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

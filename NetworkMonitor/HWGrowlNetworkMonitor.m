@@ -1511,6 +1511,8 @@ static void scCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *in
 		@[@"Wi-Fi Off", @"Network-Wifi-Off"],
 		@[@"Ethernet Connected", @"Network-Ethernet-On"],
 		@[@"Ethernet Disconnected", @"Network-Ethernet-Off"],
+		@[@"Other Interface Connected", @"Network-Interface-On"],
+		@[@"Other Interface Disconnected", @"Network-Interface-Off"],
 		@[@"Generic Connected", @"Network-Generic-On"],
 		@[@"Generic Disconnected", @"Network-Generic-Off"],
 	]];

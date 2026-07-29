@@ -4,6 +4,30 @@ All notable changes made in this fork on top of
 [`pranav-prakash/HardwareGrowler-NC`](https://github.com/pranav-prakash/HardwareGrowler-NC).
 Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-series)**.
 
+## v1.8.0 — 2026-07-29
+
+### New: Scanner Monitor (13th monitor) — network scanner detection
+- Detects scanners/MFPs advertising themselves on the local network via Bonjour
+  (`_scanner._tcp`/`_uscan._tcp`, eSCL/AirScan), posting a notification when one appears or
+  disappears on the LAN.
+- **Off by default.** This is the first feature in the app to request macOS's Local Network
+  permission — nothing runs (no Bonjour browsing, no permission prompt) until the user
+  explicitly enables "Enable network scanner detection" in Preferences → Scanner Monitor.
+
+### Icon fixes and completeness pass
+- New `USB-TypeScanner` icon, wired into USB Monitor's device-class classifier (USB scanners
+  were previously falling back to the generic USB icon).
+- Volume Monitor's Optical and NAS device icons now have "Unmounted"/"Critical" variants,
+  matching the External Disk/SD Card/USB Drive icons (same reused red-X/radioactive-badge
+  overlay, not new artwork).
+- Network Monitor's Icons tab was missing a row for the icon used when a non-Ethernet,
+  non-Wi-Fi interface connects/disconnects (e.g. a phone's USB network interface) — added.
+
+### Improved: Uninstall now offers to reset system permissions
+- The confirmation dialog has a new checkbox (on by default) to also reset the Bluetooth,
+  Location, and Local Network authorizations macOS has recorded for this app — see
+  [Uninstall](#uninstall) below for details and a known OS-level caveat.
+
 ## 2026-07-27
 
 ### New: notification history (Preferences → History)

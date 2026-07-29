@@ -244,6 +244,8 @@ static const uint8_t kHWGUSBHubDeviceClass = 9;
 		                                           // distinguish the two without reading
 		                                           // the Report Descriptor.
 		case 0x07: return @"USB-TypePrinter";      // Printer
+		case 0x06: return @"USB-TypeScanner";       // Image (most standalone scanners/MFPs
+		                                           // without a printer function report this)
 		case 0x0B: return @"USB-TypeSmartCard";    // Smart Card
 		case 0x0E: return @"USB-TypeWebcam";       // Video
 		case 0xE0: return @"USB-TypeWireless";     // Wireless Controller
@@ -512,6 +514,7 @@ static void usbDeviceRemoved(void *refCon, io_iterator_t iterator) {
 		@[@"Hub", @"USB-TypeHub"],
 		@[@"Keyboard/Mouse", @"USB-TypeHID"],
 		@[@"Webcam", @"USB-TypeWebcam"],
+		@[@"Scanner", @"USB-TypeScanner"],
 		@[@"Printer", @"USB-TypePrinter"],
 		@[@"Smart Card", @"USB-TypeSmartCard"],
 		@[@"Audio", @"USB-TypeAudio"],

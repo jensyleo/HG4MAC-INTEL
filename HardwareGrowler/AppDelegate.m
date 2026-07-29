@@ -355,12 +355,26 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 	alert.informativeText = NSLocalizedString(@"This will quit HG4MAC, remove it from login items, delete all of its settings, and move the app to the Trash.\n\nThis cannot be undone.", @"");
 	[alert addButtonWithTitle:NSLocalizedString(@"Uninstall", @"")];  // NSAlertFirstButtonReturn
 	[alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"")];     // NSAlertSecondButtonReturn
+
+	// Optional: also reset the macOS system permissions (Bluetooth/Location/Local Network)
+	// granted to this app. These live in the system's TCC database, keyed by bundle ID —
+	// they are NOT removed by deleting the app or its files, and clearing them requires
+	// admin privileges (a real `tccutil reset`, run via the standard macOS admin-password
+	// prompt — never done silently). Defaults to ON since a user choosing "Uninstall" most
+	// likely wants a truly clean slate, matching what "Uninstall" implies to most people.
+	NSButton *resetPermsCheckbox = [NSButton checkboxWithTitle:
+		NSLocalizedString(@"Also reset system permissions (Bluetooth, Location, Local Network) — asks for your admin password", @"")
+		target:nil action:NULL];
+	resetPermsCheckbox.state = NSControlStateValueOn;
+	resetPermsCheckbox.frame = NSMakeRect(0, 0, 400, 18);
+	alert.accessoryView = resetPermsCheckbox;
+
 	if ([alert runModal] != NSAlertFirstButtonReturn)
 		return;
-	[self performUninstall];
+	[self performUninstallAlsoResettingPermissions:(resetPermsCheckbox.state == NSControlStateValueOn)];
 }
 
-- (void)performUninstall {
+- (void)performUninstallAlsoResettingPermissions:(BOOL)alsoResetPermissions {
 	NSString *bundleID = @"com.jensyleo.hg4mac";
 	NSString *home = NSHomeDirectory();
 	NSString *appPath = [[NSBundle mainBundle] bundlePath];
@@ -398,6 +412,25 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 		[cmd appendFormat:@"/bin/rm -rf \"%@\"/*com.growl.hardwaregrowler* >/dev/null 2>&1; ", dir];
 	}
 	[cmd appendFormat:@"/bin/mv \"%@\" \"%@/\" >/dev/null 2>&1; ", appPath, trash];
+
+	// Reset the macOS system permission grants tied to our bundle ID (Bluetooth, Location,
+	// Local Network). These are NOT removed by deleting files — they live in a separate
+	// system database that requires root to modify. `tccutil`'s real internal service
+	// names differ from their user-facing labels (confirmed by inspecting TCC.framework):
+	// Bluetooth = BluetoothAlways/BluetoothPeripheral, Location = Liverpool (codename),
+	// Local Network = Willow (codename). Run via `do shell script ... with administrator
+	// privileges` so macOS shows its own standard password prompt — never done silently,
+	// and it's fine if the user cancels that prompt (the rest of the uninstall already
+	// happened by this point).
+	if (alsoResetPermissions) {
+		NSString *tccResetCmd = [NSString stringWithFormat:
+			@"/usr/bin/tccutil reset BluetoothAlways %@; "
+			 "/usr/bin/tccutil reset BluetoothPeripheral %@; "
+			 "/usr/bin/tccutil reset Liverpool %@; "
+			 "/usr/bin/tccutil reset Willow %@",
+			bundleID, bundleID, bundleID, bundleID];
+		[cmd appendFormat:@"/usr/bin/osascript -e 'do shell script \"%@\" with administrator privileges' >/dev/null 2>&1; ", tccResetCmd];
+	}
 
 	NSTask *task = [[NSTask alloc] init];
 	task.launchPath = @"/bin/sh";

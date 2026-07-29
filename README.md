@@ -340,6 +340,15 @@ On first launch macOS will ask for:
 - **Location** — required since macOS 10.14 to read the Wi-Fi **SSID** (the connection
   is still detected without it; only the network name needs it).
 
+**Sometimes macOS won't show either prompt at all.** This is a macOS behavior, not a bug in
+the app: on some systems macOS silently records an authorization decision for the app's
+bundle identifier without ever displaying the permission dialog (observed after repeated
+install/reinstall cycles, or when the underlying daemons — `bluetoothd`/`locationd` — already
+hold a cached decision from a previous run). Either way, **the app keeps working correctly**:
+if access was silently granted, monitoring works exactly as if you had clicked "Allow"; if
+you ever need to force the dialog to reappear (e.g. to verify the permission flow on a clean
+machine), see [Uninstall](#uninstall) below.
+
 ### Notifications & code signing
 
 This build is signed **by the linker only** — the project sets `CODE_SIGN_IDENTITY = ""`,
@@ -364,7 +373,24 @@ built-in banner.
 ## Uninstall
 
 Click the menu-bar icon → **Uninstall HG4MAC…**. It unregisters the login item,
-removes preferences/caches/saved-state, and moves the app to the Trash — no orphans left.
+removes preferences/caches/saved-state/HTTP storages (including legacy artifacts from
+installs before the app was renamed from HardwareGrowler), and moves the app to the Trash —
+no orphans left on disk.
+
+The confirmation dialog has a checkbox, **on by default**: *"Also reset system permissions
+(Bluetooth, Location, Local Network)"*. macOS keeps its own record of whether HG4MAC is
+allowed to use Bluetooth/Location/the local network, tied to the app's bundle identifier —
+that record is completely separate from the app's files and is **not** removed just by
+deleting the app. Leaving the checkbox on runs `tccutil reset` for the 3 permissions this app
+can request, which pops the standard macOS administrator-password prompt (nothing is done
+silently, and if you cancel that prompt the rest of the uninstall has already completed).
+
+**Known limitation**: on some macOS versions, `locationd` and `bluetoothd` cache their
+authorization decision in memory and only fully forget it after a full reboot — if you
+reinstall right after uninstalling and it still doesn't ask for permission again, restart
+your Mac once and try again. Also, macOS's Local Network privacy pane doesn't offer a way to
+remove an app's entry by hand on every macOS version (only toggle it on/off) — this is an OS
+limitation, not something HG4MAC's uninstaller can work around.
 
 ## Project layout
 
