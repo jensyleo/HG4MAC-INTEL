@@ -12,6 +12,11 @@ Prebuilt `.zip`: see [Releases](https://github.com/jensyleo/HG4MAC-INTEL/release
 updating). Ad-hoc signed, not notarized: right-click → **Open** on first launch to bypass
 Gatekeeper's "unidentified developer" warning.
 
+**If "Start at Login" was on:** after updating to a new build, check System Settings →
+General → Login Items & Extensions — you may see a duplicate `HG4MAC.app` entry left over
+from the previous build. See "Known limitation: Start at Login" below for why, and the
+confirmed step-by-step fix (remove all duplicates, relaunch, reboot to verify).
+
 **Every release from here on should ship the same way** — Debug builds during development,
 but the artifact actually handed to a user (including "future me on this same Mac") should
 always be a Release-configuration build packaged as a GitHub Release, same as upstream does
@@ -104,6 +109,27 @@ Neither has been set up for this fork as of this writing — builds remain ad-ho
 so a genuinely new rebuild can still leave one orphaned Login Items entry behind for the
 user to clean up manually. The auto-heal above only guarantees the toggle stays honest and
 functional across that; it doesn't do the cleanup.
+
+**Confirmed manual recovery procedure (2026-07-29), needed once per NEW rebuild that
+replaces the running app:**
+
+1. Open **System Settings → General → Login Items & Extensions**.
+2. Under "Open at Login," remove **every** `HG4MAC.app` entry you see (there may be 2+ —
+   select each, press `–`). The System Settings list can also show a stale/duplicate entry
+   that doesn't reflect `sfltool dumpbtm`'s actual state until the pane is closed and
+   reopened — always re-check the list fresh (quit System Settings, reopen it) before
+   concluding there are still duplicates, rather than trusting a pane left open from before.
+3. Relaunch `HG4MAC.app`. The auto-heal (see above) re-registers it automatically — no
+   need to touch the "Start at Login" toggle by hand.
+4. Quit and reopen the app a few times to confirm no new duplicate reappears.
+5. Reboot the Mac as a final check — the single registration should survive a real login,
+   not just an app relaunch.
+
+Confirmed working end-to-end by the user after a real reboot. Do this after installing
+**any** new build (a fresh compile, or a `.zip` from a new Release) that replaces an
+already-registered `HG4MAC.app` — not just once ever. Since each rebuild's code hash
+differs (see root cause above), the stale-entry step is expected to recur per rebuild
+until a stable signing identity is set up.
 
 ## Other Intel-specific fixes
 
