@@ -8,6 +8,8 @@
 
 // compile with ARC: -fobjc-arc
 #import "HWGrowlPowerMonitor.h"
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 #include <IOKit/IOKitLib.h>
 #include <IOKit/ps/IOPSKeys.h>
 #include <IOKit/ps/IOPowerSources.h>
@@ -560,7 +562,7 @@ static BOOL HWGCopyBatteryHealth(NSInteger *outCycleCount, NSInteger *outHealthP
 				@autoreleasepool {
 					NSString *desc = [self chargingDescriptionForPowerSources:powerSourceDescriptions
 															 currentSource:currentSource];
-					NSData *fullIcon = [[NSImage imageNamed:@"Power-Plugged"] TIFFRepresentation];
+					NSData *fullIcon = [HWGResolveIconNamed(@"Power-Plugged") TIFFRepresentation];
 					// Distinct identifier so the dedup key (name+identifier+description) doesn't
 					// collide with the generic "On AC Power" notice (same description).
 					[delegate notifyWithName:@"PowerChange"
@@ -612,7 +614,7 @@ static BOOL HWGCopyBatteryHealth(NSInteger *outCycleCount, NSInteger *outHealthP
 
 			@autoreleasepool
 			{
-	NSData *iconData = [[NSImage imageNamed:imageName] TIFFRepresentation];
+	NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
             
             [delegate notifyWithName:name
                                title:title
@@ -694,7 +696,7 @@ static BOOL HWGCopyBatteryHealth(NSInteger *outCycleCount, NSInteger *outHealthP
 		imageName = [self powerIconNameForSource:currentSource percentage:percentage];
 		CFRelease(sourcesBlob);
 	}
-	return [[NSImage imageNamed:imageName] TIFFRepresentation];
+	return [HWGResolveIconNamed(imageName) TIFFRepresentation];
 }
 
 -(NSMutableString*)chargingDescriptionForPowerSources:(NSArray*)sources currentSource:(HGPowerSource)currentSource {
@@ -921,12 +923,9 @@ static void powerSourceChanged(void *context) {
 	return NSLocalizedString(@"Power Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	static NSImage *_icon = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		_icon = [NSImage imageNamed:@"HWGPrefsPower"];
-	});
-	return _icon;
+	// Resolved fresh every call (not cached) since this is user-customizable via the Icons
+	// tab's "Module Icon (Sidebar)" row — see the same note on AudioMonitor's -preferenceIcon.
+	return HWGResolveIconNamed(@"HWGPrefsPower-Module");
 }
 // F33: single generic handler for every per-field visibility checkbox — mirrors
 // NetworkMonitor's `fieldToggleChanged:`. Each checkbox's `identifier` carries the
@@ -1005,7 +1004,7 @@ static void powerSourceChanged(void *context) {
 	// the portion that still falls within the superview's bounds, which is exactly what
 	// caused the unit popup's arrow/chevron (at its far right edge) to not respond to
 	// clicks while its text (further left, still in-bounds) did.
-	CGFloat width = 460;
+	CGFloat width = 560;
 	CGFloat pad = 16;
 	CGFloat xibW = 225, xibH = 204;
 	CGFloat headerH = 18;
@@ -1030,6 +1029,7 @@ static void powerSourceChanged(void *context) {
 		+ 10 + healthControlRowH      // "Check every" row
 		+ 6 + rowH                    // "Check Now" button row
 		+ 6 + healthControlRowH;      // "Notify every" row (child, tighter gap)
+
 	// PowerMonitorPrefs.xib's own content occupies only its TOP ~half — its lowest control
 	// ("Refire only on battery") has its own bottom edge at local y=107 (of the xib's
 	// declared 204pt-tall frame), and the cursor logic below jumps straight to that real
@@ -1190,9 +1190,79 @@ static void powerSourceChanged(void *context) {
 	scroll.autohidesScrollers = YES;
 	scroll.drawsBackground = NO;
 	scroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-	scroll.documentView = combined;
 
-	prefsView = scroll;
+	// `combined`'s children are positioned with raw frames that assume normal AppKit
+	// (unflipped, bottom-up) coordinates — don't touch that math. Instead wrap it in a
+	// same-size flipped container so that if the Icons tab (built afterwards) ends up
+	// taller and NSTabView stretches this General tab's scroll view to match, any leftover
+	// space lands at the bottom of the clip instead of pushing `combined` down and leaving
+	// a blank gap above it (the same bug already fixed for every monitor's Icons tab).
+	NSView *generalWrapper = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, width, totalHeight)];
+	combined.frame = NSMakeRect(0, 0, width, totalHeight);
+	[generalWrapper addSubview:combined];
+	scroll.documentView = generalWrapper;
+
+	// Icon overrides tab: lets the user pick a custom image for every icon this monitor
+	// can draw at runtime — plugged, each 0/10/…/100% battery level (both discharging and
+	// charging variants), plus the battery-failure/no-battery states. HWGIconPickerView
+	// sizes itself via its own internal Auto Layout constraints, so it's wrapped in its
+	// own NSScrollView here (the row count is long enough that it won't fit unscrolled).
+	NSMutableArray<NSArray<NSString*>*> *iconSpecs = [NSMutableArray array];
+	[iconSpecs addObject:@[NSLocalizedString(@"Module Icon (Sidebar)", @""), @"HWGPrefsPower-Module"]];
+	[iconSpecs addObject:@[NSLocalizedString(@"Plugged In", @""), @"Power-Plugged"]];
+	for (NSInteger pct = 0; pct <= 100; pct += 10) {
+		NSString *label = [NSString stringWithFormat:NSLocalizedString(@"Battery %ld%%", @""), (long)pct];
+		NSString *name = [NSString stringWithFormat:@"Power-%ld", (long)pct];
+		[iconSpecs addObject:@[label, name]];
+	}
+	for (NSInteger pct = 0; pct <= 100; pct += 10) {
+		NSString *label = [NSString stringWithFormat:NSLocalizedString(@"Charging %ld%%", @""), (long)pct];
+		NSString *name = [NSString stringWithFormat:@"Power-Charging-%ld", (long)pct];
+		[iconSpecs addObject:@[label, name]];
+	}
+	[iconSpecs addObject:@[NSLocalizedString(@"Battery Failure", @""), @"Power-BatteryFailure"]];
+	[iconSpecs addObject:@[NSLocalizedString(@"No Battery", @""), @"Power-NoBattery"]];
+
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:iconSpecs];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconPickerW = width - 2 * pad;
+	iconPicker.frame = NSMakeRect(0, 0, iconPickerW, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	NSTextField *iconsHeader = [NSTextField labelWithString:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.font = [NSFont boldSystemFontOfSize:12];
+	iconsHeader.textColor = [NSColor secondaryLabelColor];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+	CGFloat iconsGap = 12;
+
+	NSView *iconsContent = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, width, iconsHeaderH + iconsGap + iconPickerH + 2 * pad)];
+	iconsHeader.frame = NSMakeRect(pad, pad, iconPickerW, iconsHeaderH);
+	[iconsContent addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(pad, pad + iconsHeaderH + iconsGap, iconPickerW, iconPickerH);
+	[iconsContent addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, width, 350)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsContent;
+
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, width, 350)];
+	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+	NSTabViewItem *generalItem = [[NSTabViewItem alloc] initWithIdentifier:@"general"];
+	generalItem.label = NSLocalizedString(@"General", @"");
+	generalItem.view = scroll;
+	[tabs addTabViewItem:generalItem];
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
+
+	prefsView = tabs;
 	return prefsView;
 }
 

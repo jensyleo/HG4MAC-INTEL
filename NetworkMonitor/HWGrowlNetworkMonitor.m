@@ -9,6 +9,8 @@
 // compile with ARC: -fobjc-arc
 #import "HWGrowlNetworkMonitor.h"
 #import "GrowlNetworkUtilities.h"
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 #import <SystemConfiguration/SystemConfiguration.h>
 #import <CoreWLAN/CoreWLAN.h>
 #import <CoreLocation/CoreLocation.h>
@@ -67,16 +69,8 @@
 // interface-name prefix macOS gives virtual tunnel interfaces.
 #define HWG_VPN_NOTIFY_KEY @"HWGNetworkNotifyVPN"
 
-// A plain NSView is NOT flipped by default, so inside an NSScrollView whose clip area
-// ends up TALLER than the document (e.g. after the Preferences-window resize fix let the
-// box grow), the document sits at the BOTTOM of the visible area — leaving an empty gap
-// above content that's pinned via top-anchor constraints, instead of at the top where the
-// constraints visually intend it. Flipped views don't have this ambiguity.
-@interface HWGFlippedContentView : NSView
-@end
-@implementation HWGFlippedContentView
-- (BOOL)isFlipped { return YES; }
-@end
+// HWGFlippedContentView now lives in HWGIconPickerView.h/.m (shared across every monitor's
+// Icons tab) — this file already imports that header, so no local definition needed here.
 
 static struct ifmedia_description ifm_subtype_ethernet_descriptions[] = IFM_SUBTYPE_ETHERNET_DESCRIPTIONS;
 static struct ifmedia_description ifm_shared_option_descriptions[] = IFM_SHARED_OPTION_DESCRIPTIONS;
@@ -434,7 +428,7 @@ typedef enum {
 	NSString *desc = [NSString stringWithFormat:
 		NSLocalizedString(@"%@\nSignal %@ %@ (%ld/4)", @"network name, arrow, improved/degraded, bars"),
 		ssid, arrow, dir, (long)bars];
-	NSData *iconData = [[NSImage imageNamed:[NSString stringWithFormat:@"Network-Wifi-%ld", (long)bars]] TIFFRepresentation];
+	NSData *iconData = [HWGResolveIconNamed([NSString stringWithFormat:@"Network-Wifi-%ld", (long)bars]) TIFFRepresentation];
 
 	[delegate notifyWithName:@"AirportSignalChange"
 						 title:NSLocalizedString(@"Wi-Fi Signal Changed", @"")
@@ -659,7 +653,7 @@ typedef enum {
 }
 
 -(void)airportDisconnected:(NSString*)networkName {
-	NSData *iconData = [[NSImage imageNamed:@"Network-Wifi-Off"] TIFFRepresentation];
+	NSData *iconData = [HWGResolveIconNamed(@"Network-Wifi-Off") TIFFRepresentation];
     [delegate notifyWithName:@"AirportDisconnected"
 							 title:NSLocalizedString(@"AirPort Disconnected", @"")
 					 description:[NSString stringWithFormat:NSLocalizedString(@"Left network %@.", @""), networkName]
@@ -801,7 +795,7 @@ typedef enum {
 	NSString *extra = [self wifiExtraInfoLines];
 	if (extra) description = [description stringByAppendingFormat:@"\n%@", extra];
 
-	NSData *iconData = [[NSImage imageNamed:[self wifiIconNameForCurrentSignal]] TIFFRepresentation];
+	NSData *iconData = [HWGResolveIconNamed([self wifiIconNameForCurrentSignal]) TIFFRepresentation];
 
 	[delegate notifyWithName:@"AirportConnected"
 							 title:NSLocalizedString(@"AirPort Connected", @"")
@@ -857,7 +851,7 @@ typedef enum {
 		imageName = isEthernet ? @"Network-Ethernet-Off" : @"Network-Interface-Off";
 	}
 	
-	NSData *iconData = [[NSImage imageNamed:imageName] TIFFRepresentation];
+	NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
    
 	if(noteName){
 		[delegate notifyWithName:noteName
@@ -1085,8 +1079,8 @@ static int cidrBitsFromNetmaskV4(uint32_t netmask) {
 	NSMutableSet<NSString*> *newlyDisconnected = [self.activeVPNInterfaceNames mutableCopy];
 	[newlyDisconnected minusSet:currentNames];
 
-	NSData *onIcon  = [[NSImage imageNamed:@"Network-Generic-On"] TIFFRepresentation];
-	NSData *offIcon = [[NSImage imageNamed:@"Network-Generic-Off"] TIFFRepresentation];
+	NSData *onIcon  = [HWGResolveIconNamed(@"Network-Generic-On") TIFFRepresentation];
+	NSData *offIcon = [HWGResolveIconNamed(@"Network-Generic-Off") TIFFRepresentation];
 
 	for (NSString *ifname in newlyConnected) {
 		[delegate notifyWithName:@"VPNConnected"
@@ -1185,7 +1179,7 @@ static int cidrBitsFromNetmaskV4(uint32_t netmask) {
 		imageName   = anyRoutable ? @"Network-Generic-On" : @"Network-Generic-Off";
 	}
 
-	NSData *iconData = [[NSImage imageNamed:imageName] TIFFRepresentation];
+	NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
 	[delegate notifyWithName:@"IPAddressChange"
 							 title:NSLocalizedString(@"IP Addresses Updated", @"")
 					 description:description
@@ -1223,12 +1217,9 @@ static void scCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *in
 	return NSLocalizedString(@"Network Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	static NSImage *_icon = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		_icon = [NSImage imageNamed:@"HWGPrefsNetwork"];
-	});
-	return _icon;
+	// Resolved fresh every call (not cached) since this is user-customizable via the Icons
+	// tab's "Module Icon (Sidebar)" row — see the same note on AudioMonitor's -preferenceIcon.
+	return HWGResolveIconNamed(@"HWGPrefsNetwork-Module");
 }
 -(IBAction)signalIntervalChanged:(NSSlider*)sender {
 	NSInteger secs = lround([sender doubleValue]);
@@ -1309,7 +1300,7 @@ static void scCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *in
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
-	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 420, 260)];
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 260)];
 	// AppDelegate sizes this view once via -setFrameSize: to match the prefs window's
 	// container, then never again — without an autoresizing mask this view (and its
 	// visible tab box) stays whatever size it was created at even if the user later
@@ -1494,6 +1485,57 @@ static void scCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *in
 	otherItem.label = NSLocalizedString(@"Other", @"");
 	otherItem.view = [self scrollWrapping:otherTab height:120];
 	[tabs addTabViewItem:otherItem];
+
+	// --- Tab: Icons (per-event icon overrides) ---
+	// NOTE: deliberately NOT using -scrollWrapping:height: here (unlike the other tabs
+	// above) — that helper forces the CONTENT view's height to a fixed guessed constant,
+	// which is exactly the bug that broke this tab's layout (10 icon rows crammed into a
+	// fixed 260pt container). Instead the content view is sized to the icon picker's real
+	// -fittingSize, and only the outer NSScrollView's frame uses a fixed "viewport" height
+	// (260, matching the tab's prior visual size) — content taller than that scrolls.
+	CGFloat iconsPad = 16;
+	CGFloat iconsGap = 12;
+	CGFloat iconsWidth = tabs.bounds.size.width - 2 * iconsPad;
+
+	NSTextField *iconsHeader = [self sectionHeaderWithTitle:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
+		@[@"Module Icon (Sidebar)", @"HWGPrefsNetwork-Module"],
+		@[@"Wi-Fi — No Signal", @"Network-Wifi-0"],
+		@[@"Wi-Fi — Weak", @"Network-Wifi-1"],
+		@[@"Wi-Fi — Fair", @"Network-Wifi-2"],
+		@[@"Wi-Fi — Good", @"Network-Wifi-3"],
+		@[@"Wi-Fi — Excellent", @"Network-Wifi-4"],
+		@[@"Wi-Fi Off", @"Network-Wifi-Off"],
+		@[@"Ethernet Connected", @"Network-Ethernet-On"],
+		@[@"Ethernet Disconnected", @"Network-Ethernet-Off"],
+		@[@"Generic Connected", @"Network-Generic-On"],
+		@[@"Generic Disconnected", @"Network-Generic-Off"],
+	]];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	CGFloat iconsContentH = iconsHeaderH + iconsGap + iconPickerH + 2 * iconsPad;
+	NSView *iconsTab = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, iconsContentH)];
+	iconsHeader.frame = NSMakeRect(iconsPad, iconsPad, iconsWidth, iconsHeaderH);
+	[iconsTab addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(iconsPad, iconsPad + iconsHeaderH + iconsGap, iconsWidth, iconPickerH);
+	[iconsTab addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, 260)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsTab;
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
 
 	prefsView = tabs;
 	return prefsView;

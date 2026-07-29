@@ -7,6 +7,8 @@
 //
 
 #import "HWGrowlThunderboltMonitor.h"
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 #include <IOKit/IOKitLib.h>
 
 // kIOMainPortDefault is available since macOS 12 (deployment target is 13).
@@ -106,11 +108,14 @@ static BOOL HWGTBBoolForKey(NSString *key, BOOL def) {
 
 #pragma mark Callbacks
 
--(void)tbDeviceName:(NSString*)deviceName added:(BOOL)added extraInfo:(NSString *)extraInfo {
+-(void)tbDeviceName:(NSString*)deviceName added:(BOOL)added iconName:(NSString *)iconNameOverride extraInfo:(NSString *)extraInfo {
 	NSString *title = added ? NSLocalizedString(@"Thunderbolt Connection", @"") : NSLocalizedString(@"Thunderbolt Disconnection", @"");
 
-	NSString *imageName = added ? @"Thunderbolt-On" : @"Thunderbolt-Off";
-	NSData *iconData = [[NSImage imageNamed:imageName] TIFFRepresentation];
+	// Device-type icon only applies on connect — registry properties (including class-code)
+	// are frequently unreadable from an already-terminating entry on disconnect, same
+	// limitation already documented for the extra-info fields and the eGPU check below.
+	NSString *imageName = added ? (iconNameOverride ?: @"Thunderbolt-On") : @"Thunderbolt-Off";
+	NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
 	NSString *description = extraInfo ? [NSString stringWithFormat:@"%@\n%@", deviceName, extraInfo] : deviceName;
 
 	[delegate notifyWithName:added ? @"ThunderboltConnected" : @"ThunderboltDisconnected"
@@ -137,6 +142,44 @@ static BOOL HWGTBBoolForKey(NSString *key, BOOL def) {
 		case 0x09: return NSLocalizedString(@"Input Device", @"");
 		case 0x0C: return NSLocalizedString(@"Serial Bus Controller", @"");
 		case 0x0D: return NSLocalizedString(@"Wireless Controller", @"");
+		default:   return nil;
+	}
+}
+
+// Shared by the extra-info "Type" field, the icon lookup below, and the eGPU check — all
+// three just want the raw PCI base-class byte (top byte of the 3-byte "class-code" registry
+// property). Returns 0x00 when unreadable, a safe "no icon"/"not a Display Controller"
+// sentinel since 0x00 isn't a case any of those three ever treat as meaningful.
+-(uint8_t)pciBaseClassForDevice:(io_object_t)device {
+	CFTypeRef classRef = IORegistryEntryCreateCFProperty(device, CFSTR("class-code"), kCFAllocatorDefault, 0);
+	if (!classRef) return 0;
+	uint32_t classCode = 0;
+	BOOL got = NO;
+	if (CFGetTypeID(classRef) == CFDataGetTypeID() && CFDataGetLength((CFDataRef)classRef) >= 3) {
+		const UInt8 *bytes = CFDataGetBytePtr((CFDataRef)classRef);
+		classCode = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16);
+		got = YES;
+	} else if (CFGetTypeID(classRef) == CFNumberGetTypeID()) {
+		CFNumberGetValue((CFNumberRef)classRef, kCFNumberSInt32Type, (int32_t *)&classCode);
+		got = YES;
+	}
+	CFRelease(classRef);
+	return got ? ((classCode >> 16) & 0xFF) : 0;
+}
+
+// Maps the same PCI base-class codes used for `tbClassNameForBaseClass:` above to one of
+// the device-type icons (Assets.xcassets) added for the "maximum icon coverage" pass — nil
+// falls back to the plain generic Thunderbolt-On icon. 0x03 (Display Controller) maps to
+// the eGPU icon specifically, not a generic "display" icon: per the existing eGPU-detection
+// comment, a hot-plugged Display Controller PCI function is, in practice, always an eGPU on
+// this hardware (internal Apple Silicon GPUs never enumerate as a post-launch add/remove).
+-(NSString *)tbIconNameForBaseClass:(uint8_t)baseClass {
+	switch (baseClass) {
+		case 0x01: return @"TB-TypeDisk";            // Storage Controller
+		case 0x02: return @"TB-TypeNetworkAdapter";  // Network Controller
+		case 0x03: return @"TB-TypeEGPU";            // Display Controller — see note above
+		case 0x04: return @"TB-TypeCapture";         // Multimedia Controller
+		case 0x06: return @"TB-TypeDock";            // Bridge / Dock
 		default:   return nil;
 	}
 }
@@ -227,8 +270,8 @@ static BOOL HWGTBBoolForKey(NSString *key, BOOL def) {
 	if (![self isDisplayControllerDevice:device]) return;
 
 	NSString *title = added ? NSLocalizedString(@"eGPU Connected", @"") : NSLocalizedString(@"eGPU Disconnected", @"");
-	NSString *imageName = added ? @"Thunderbolt-On" : @"Thunderbolt-Off";
-	NSData *iconData = [[NSImage imageNamed:imageName] TIFFRepresentation];
+	NSString *imageName = added ? @"TB-TypeEGPU" : @"Thunderbolt-Off";
+	NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
 
 	[delegate notifyWithName:added ? @"ThunderboltEGPUConnected" : @"ThunderboltEGPUDisconnected"
 							 title:title
@@ -248,7 +291,8 @@ static BOOL HWGTBBoolForKey(NSString *key, BOOL def) {
 		if (notificationsArePrimed) {
 			NSString *deviceName = [self nameForThunderboltObject:thisObject];
 			if (deviceName) {
-				[self tbDeviceName:deviceName added:YES extraInfo:[self tbExtraInfoForDevice:thisObject]];
+				NSString *iconName = [self tbIconNameForBaseClass:[self pciBaseClassForDevice:thisObject]];
+				[self tbDeviceName:deviceName added:YES iconName:iconName extraInfo:[self tbExtraInfoForDevice:thisObject]];
 				[self tbNotifyEGPUIfNeeded:thisObject deviceName:deviceName added:YES];
 			}
 		}
@@ -271,7 +315,7 @@ static void tbDeviceAdded(void *refCon, io_iterator_t iterator) {
 			// applies to the eGPU class-code check below — it will often silently miss
 			// eGPU DISCONNECT (but not connect), documented in README.
 			if (deviceName) {
-				[self tbDeviceName:deviceName added:NO extraInfo:nil];
+				[self tbDeviceName:deviceName added:NO iconName:nil extraInfo:nil];
 				[self tbNotifyEGPUIfNeeded:thisObject deviceName:deviceName added:NO];
 			}
 		}
@@ -342,12 +386,9 @@ static void tbDeviceRemoved(void *refCon, io_iterator_t iterator) {
 	return NSLocalizedString(@"Thunderbolt Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	static NSImage *_icon = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		_icon = [NSImage imageNamed:@"HWGPrefsThunderbolt"];
-	});
-	return _icon;
+	// Resolved fresh every call (not cached) since this is user-customizable via the Icons
+	// tab's "Module Icon (Sidebar)" row — see the same note on AudioMonitor's -preferenceIcon.
+	return HWGResolveIconNamed(@"HWGPrefsThunderbolt-Module");
 }
 // F33: single generic handler for every per-field visibility checkbox. Each checkbox's
 // `identifier` carries the NSUserDefaults key it controls.
@@ -368,7 +409,15 @@ static void tbDeviceRemoved(void *refCon, io_iterator_t iterator) {
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
-	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 380, 174)];
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 260)];
+	// AppDelegate sizes this view once via -setFrameSize: to match the prefs window's
+	// container, then never again — without an autoresizing mask this view (and its
+	// visible tab box) stays whatever size it was created at even if the user later
+	// resizes the Preferences window. Track the container's size going forward.
+	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+	// --- Tab: General (pre-existing "Notification fields" content) ---
+	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, 174)];
 
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Notification fields", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
@@ -398,7 +447,55 @@ static void tbDeviceRemoved(void *refCon, io_iterator_t iterator) {
 		previous = row;
 	}
 
-	prefsView = v;
+	NSTabViewItem *generalItem = [[NSTabViewItem alloc] initWithIdentifier:@"general"];
+	generalItem.label = NSLocalizedString(@"General", @"");
+	generalItem.view = v;
+	[tabs addTabViewItem:generalItem];
+
+	// --- Tab: Icons (per-event icon overrides) ---
+	CGFloat iconsPad = 16;
+	CGFloat iconsWidth = tabs.bounds.size.width - 2 * iconsPad;
+
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
+		@[@"Module Icon (Sidebar)", @"HWGPrefsThunderbolt-Module"],
+		@[@"eGPU", @"TB-TypeEGPU"],
+		@[@"Dock", @"TB-TypeDock"],
+		@[@"Disk", @"TB-TypeDisk"],
+		@[@"Network Adapter", @"TB-TypeNetworkAdapter"],
+		@[@"Capture", @"TB-TypeCapture"],
+		@[@"Connected (generic)", @"Thunderbolt-On"],
+		@[@"Disconnected", @"Thunderbolt-Off"],
+	]];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	NSTextField *iconsHeader = [NSTextField labelWithString:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.font = [NSFont boldSystemFontOfSize:12];
+	iconsHeader.textColor = [NSColor secondaryLabelColor];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+	CGFloat iconsGap = 12;
+
+	NSView *iconsContent = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, iconsHeaderH + iconsGap + iconPickerH + 2 * iconsPad)];
+	iconsHeader.frame = NSMakeRect(iconsPad, iconsPad, iconsWidth, iconsHeaderH);
+	[iconsContent addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(iconsPad, iconsPad + iconsHeaderH + iconsGap, iconsWidth, iconPickerH);
+	[iconsContent addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, 260)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsContent;
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
+
+	prefsView = tabs;
 	return prefsView;
 }
 

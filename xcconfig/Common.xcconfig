@@ -52,7 +52,7 @@ GCC_WARN_UNUSED_LABEL = YES
 GCC_TREAT_WARNINGS_AS_ERRORS = NO
 
 //app metadata (fork)
-HWG_VERSION = 1.0
+HWG_VERSION = 1.7.0
 COPYRIGHT = © 2026 Jensy Leonardo Martínez Cruz. GPLv3.
 
 //plist

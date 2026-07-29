@@ -6,6 +6,8 @@
 // compile with ARC: -fobjc-arc
 #import "HWGrowlGamepadMonitor.h"
 #import <GameController/GameController.h>
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 
 // F19: unlike Audio/Camera Monitor, GameController framework exposes no transport type for a
 // GCController, so there's no reliable way to suppress the (very common) case where the same
@@ -129,42 +131,13 @@ static BOOL HWGGamepadBoolForKey(NSString *key, BOOL def) {
 						plugin:self];
 }
 
-#pragma mark Icon (hand-drawn outline, transparent background — same convention as Audio/Camera Monitor)
+#pragma mark Icon
 
-+(NSColor *)accentColor {
-	// Remaining unclaimed colors after Bluetooth=blue-indigo, Network=cyan, Thunderbolt=yellow,
-	// Thermal=red, Power=green, Audio=orange, Camera=purple — pink is distinct from all of them.
-	return [NSColor systemPinkColor];
-}
-
-// Uses SF Symbol's own "gamecontroller" glyph (Apple's actual modern controller icon —
-// wing-shaped body, D-pad, twin thumbsticks, face buttons) instead of a hand-drawn path —
-// the hand-drawn rounded-rect-plus-circles version read as noticeably more dated/generic
-// than Apple's design once compared side by side.
+// Designed PNG (Assets.xcassets) — replaces the SF Symbol "gamecontroller" glyph this used
+// to render at runtime (pink, `systemPinkColor`). Single state: game controllers don't have
+// a distinct "off" glyph convention in this app the way muted-audio or unmounted-disk do.
 -(NSImage *)gamepadIcon {
-	NSImage *base = [NSImage imageWithSystemSymbolName:@"gamecontroller" accessibilityDescription:nil];
-	NSImageSymbolConfiguration *sizeConfig = [NSImageSymbolConfiguration configurationWithPointSize:96 weight:NSFontWeightMedium];
-	NSImageSymbolConfiguration *colorConfig = [NSImageSymbolConfiguration configurationWithHierarchicalColor:[HWGrowlGamepadMonitor accentColor]];
-	// Configs must be MERGED before applying — calling -imageWithSymbolConfiguration: twice
-	// in sequence does NOT compose them; the second call resets to the original symbol's
-	// default (tiny, ~22×14pt) size, discarding the first call's size config entirely. That
-	// was the bug behind the icon rendering almost invisibly small in the sidebar.
-	NSImageSymbolConfiguration *combined = [sizeConfig configurationByApplyingConfiguration:colorConfig];
-	base = [base imageWithSymbolConfiguration:combined];
-
-	NSSize canvasSize = NSMakeSize(128, 128);
-	NSImage *image = [NSImage imageWithSize:canvasSize flipped:NO drawingHandler:^BOOL(NSRect rect) {
-		NSSize glyphSize = base.size;
-		// Fit within the canvas with a small margin, preserving aspect ratio — the raw
-		// glyph size from a 96pt point-size config isn't guaranteed to match the 128×128
-		// canvas proportions on its own.
-		CGFloat scale = MIN(rect.size.width / glyphSize.width, rect.size.height / glyphSize.height) * 1.15;
-		NSSize drawSize = NSMakeSize(glyphSize.width * scale, glyphSize.height * scale);
-		NSRect glyphRect = NSMakeRect(NSMidX(rect) - drawSize.width / 2.0, NSMidY(rect) - drawSize.height / 2.0, drawSize.width, drawSize.height);
-		[base drawInRect:glyphRect fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1.0];
-		return YES;
-	}];
-	return image;
+	return HWGResolveIconNamed(@"GamepadMonitor-Icon");
 }
 
 -(NSData *)iconData {
@@ -177,12 +150,11 @@ static BOOL HWGGamepadBoolForKey(NSString *key, BOOL def) {
 	return NSLocalizedString(@"Gamepad Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	static NSImage *_icon = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		_icon = [self gamepadIcon];
-	});
-	return _icon;
+	// Resolved fresh every call (not cached) since this is user-customizable — see the same
+	// note on AudioMonitor's -preferenceIcon. Own dedicated default name ("-Module"),
+	// separate from -gamepadIcon's "GamepadMonitor-Icon" — customizing one must never
+	// silently change the other.
+	return HWGResolveIconNamed(@"GamepadMonitor-Icon-Module");
 }
 
 -(IBAction)fieldToggleChanged:(NSButton*)sender {
@@ -202,7 +174,10 @@ static BOOL HWGGamepadBoolForKey(NSString *key, BOOL def) {
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
-	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 460, 160)];
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 160)];
+	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 160)];
 
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Notification fields", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
@@ -231,7 +206,47 @@ static BOOL HWGGamepadBoolForKey(NSString *key, BOOL def) {
 		previous = row;
 	}
 
-	prefsView = v;
+	NSTabViewItem *generalItem = [[NSTabViewItem alloc] initWithIdentifier:@"general"];
+	generalItem.label = NSLocalizedString(@"General", @"");
+	generalItem.view = v;
+	[tabs addTabViewItem:generalItem];
+
+	CGFloat iconsPad = 16;
+	CGFloat iconsWidth = 560 - 2 * iconsPad;
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
+		@[@"Module Icon (Sidebar)", @"GamepadMonitor-Icon-Module"],
+		@[@"Game Controller", @"GamepadMonitor-Icon"],
+	]];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	NSTextField *iconsHeader = [NSTextField labelWithString:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.font = [NSFont boldSystemFontOfSize:12];
+	iconsHeader.textColor = [NSColor secondaryLabelColor];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+	CGFloat iconsGap = 12;
+
+	NSView *iconsContent = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, 560, iconsHeaderH + iconsGap + iconPickerH + 2 * iconsPad)];
+	iconsHeader.frame = NSMakeRect(iconsPad, iconsPad, iconsWidth, iconsHeaderH);
+	[iconsContent addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(iconsPad, iconsPad + iconsHeaderH + iconsGap, iconsWidth, iconPickerH);
+	[iconsContent addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 560, 120)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsContent;
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
+
+	prefsView = tabs;
 	return prefsView;
 }
 

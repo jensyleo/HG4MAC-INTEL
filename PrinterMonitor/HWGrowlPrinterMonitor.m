@@ -31,6 +31,8 @@
 
 // compile with ARC: -fobjc-arc
 #import "HWGrowlPrinterMonitor.h"
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 #import <cups/cups.h>
 
 #define HWG_PRINTER_NOTIFY_KEY @"HWGPrinterNotifyConnectDisconnect"
@@ -314,6 +316,21 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 // the reference's composition. Black outlines throughout (as in the reference), which read
 // fine on both light and dark sidebar backgrounds.
 +(NSImage *)printerIconConnected:(BOOL)connected {
+	// This icon is drawn procedurally (no Assets.xcassets entry), so it can't be resolved
+	// via HWGResolveIconNamed's [NSImage imageNamed:] fallback — that would return nil for
+	// these names. Check the override store directly first instead, drawing the procedural
+	// glyph below only when the user hasn't supplied a custom image for this name.
+	NSString *defaultName = connected ? @"PrinterMonitor-Icon-Connected" : @"PrinterMonitor-Icon-Disconnected";
+	NSImage *override = [[HWGIconOverrideStore sharedStore] overrideImageForDefaultName:defaultName];
+	if (override) return override;
+	return [self drawnPrinterIconConnected:connected];
+}
+
+// The always-default procedural glyph, ignoring any user override — used for the sidebar/
+// Modules-list icon (-preferenceIcon), which must stay the app's own fixed artwork and not
+// follow the user's "Connected" notification-icon customization (that customization is
+// scoped to notifications only; the module list shouldn't visibly change alongside it).
++(NSImage *)drawnPrinterIconConnected:(BOOL)connected {
 	NSSize canvasSize = NSMakeSize(128, 128);
 	NSImage *image = [NSImage imageWithSize:canvasSize flipped:NO drawingHandler:^BOOL(NSRect rect) {
 		// Enlarged 23-jul-2026 per user request — scale the whole drawing up around the
@@ -418,12 +435,15 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 	return NSLocalizedString(@"Printer Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	static NSImage *_icon = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		_icon = [HWGrowlPrinterMonitor printerIconConnected:YES];
-	});
-	return _icon;
+	// Resolved fresh every call (not cached) since this is user-customizable — see the same
+	// note on AudioMonitor's -preferenceIcon. Own dedicated default name
+	// ("PrinterMonitor-ModuleIcon"), separate from the "Connected"/"Needs Attention"
+	// notification icons — customizing one must never silently change the other. Falls back
+	// to a static render of the procedural connected glyph (Assets.xcassets) rather than
+	// redrawing it live, since this icon never needs to reflect live connection state the
+	// way the notification icon does.
+	NSImage *override = [[HWGIconOverrideStore sharedStore] overrideImageForDefaultName:@"PrinterMonitor-ModuleIcon"];
+	return override ?: [NSImage imageNamed:@"PrinterMonitor-ModuleIcon"];
 }
 
 -(IBAction)fieldToggleChanged:(NSButton*)sender {
@@ -444,7 +464,10 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
-	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 420, 340)];
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 340)];
+	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 340)];
 
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Notification fields", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
@@ -542,10 +565,51 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 		[errorCaption.topAnchor     constraintEqualToAnchor:previous.bottomAnchor constant:8],
 		[errorCaption.leadingAnchor  constraintEqualToAnchor:v.leadingAnchor constant:16],
 		[errorCaption.trailingAnchor constraintLessThanOrEqualToAnchor:v.trailingAnchor constant:-16],
-		[errorCaption.bottomAnchor constraintLessThanOrEqualToAnchor:v.bottomAnchor constant:-16],
 	]];
 
-	prefsView = v;
+	NSTabViewItem *generalItem = [[NSTabViewItem alloc] initWithIdentifier:@"general"];
+	generalItem.label = NSLocalizedString(@"General", @"");
+	generalItem.view = v;
+	[tabs addTabViewItem:generalItem];
+
+	// --- Tab: Icons ---
+	CGFloat iconsPad = 16;
+	CGFloat iconsWidth = 560 - 2 * iconsPad;
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
+		@[@"Module Icon (Sidebar)", @"PrinterMonitor-ModuleIcon"],
+		@[@"Connected", @"PrinterMonitor-Icon-Connected"],
+		@[@"Needs Attention", @"PrinterMonitor-Icon-Disconnected"],
+	]];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	NSTextField *iconsHeader = [NSTextField labelWithString:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.font = [NSFont boldSystemFontOfSize:12];
+	iconsHeader.textColor = [NSColor secondaryLabelColor];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+	CGFloat iconsGap = 12;
+
+	NSView *iconsContent = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, 560, iconsHeaderH + iconsGap + iconPickerH + 2 * iconsPad)];
+	iconsHeader.frame = NSMakeRect(iconsPad, iconsPad, iconsWidth, iconsHeaderH);
+	[iconsContent addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(iconsPad, iconsPad + iconsHeaderH + iconsGap, iconsWidth, iconPickerH);
+	[iconsContent addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 560, 120)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsContent;
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
+
+	prefsView = tabs;
 	return prefsView;
 }
 

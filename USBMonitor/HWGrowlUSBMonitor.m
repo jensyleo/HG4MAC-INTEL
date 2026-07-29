@@ -8,6 +8,8 @@
 
 // compile with ARC: -fobjc-arc
 #import "HWGrowlUSBMonitor.h"
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOCFPlugIn.h>
 #include <IOKit/usb/IOUSBLib.h>
@@ -139,7 +141,7 @@ static BOOL HWGUSBBoolForKey(NSString *key, BOOL def) {
 	self.notificationsArePrimed = YES;
 }
 
--(void)usbDeviceID:(uint64_t)deviceID name:(NSString*)deviceName added:(BOOL)added isHub:(BOOL)isHub extraInfo:(NSString *)extraInfo {
+-(void)usbDeviceID:(uint64_t)deviceID name:(NSString*)deviceName added:(BOOL)added isHub:(BOOL)isHub iconName:(NSString *)iconNameOverride extraInfo:(NSString *)extraInfo {
 	(void)deviceID; // no longer used for identity — see identifierString below.
 	NSString *title;
 	if (isHub) {
@@ -149,8 +151,13 @@ static BOOL HWGUSBBoolForKey(NSString *key, BOOL def) {
 		title = added ? NSLocalizedString(@"USB Connection", @"") : NSLocalizedString(@"USB Disconnection", @"");
 	}
 
-    NSString *imageName = added ? @"USB-On" : @"USB-Off";
-    NSData *iconData = [[NSImage imageNamed:imageName] TIFFRepresentation];
+	// Device-type icon (Hub/HID/Webcam/Printer/Smart Card/Audio/Wireless Controller) only
+	// applies to the CONNECT notification — like the extra-info fields above, `bDeviceClass`
+	// is only reliably readable at connect time, not from an already-terminating registry
+	// entry on disconnect (same reasoning documented on `-usbExtraInfoForDevice:`). Disconnect
+	// always falls back to the plain generic icon, matching that existing behavior.
+    NSString *imageName = added ? (iconNameOverride ?: @"USB-On") : @"USB-Off";
+    NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
 	NSString *description = extraInfo ? [NSString stringWithFormat:@"%@\n%@", deviceName, extraInfo] : deviceName;
 	// Use the device NAME as the bounce/dedup identifier (matches Bluetooth/Volume/
 	// Thunderbolt), not the IOKit registry entry ID: that ID is a fresh, ephemeral
@@ -174,15 +181,22 @@ static BOOL HWGUSBBoolForKey(NSString *key, BOOL def) {
 // the dock itself).
 static const uint8_t kHWGUSBHubDeviceClass = 9;
 
--(BOOL)deviceIsHub:(io_object_t)device {
+// Shared by hub detection and the device-type icon lookup — both just want the raw
+// bDeviceClass byte. Returns 0x00 ("defined per-interface") when unreadable, which is
+// itself a safe "no icon" sentinel since 0x00 isn't a case `usbIconNameForClassCode:` maps.
+-(uint8_t)deviceClassCode:(io_object_t)device {
 	CFTypeRef classNum = IORegistryEntryCreateCFProperty(device, CFSTR("bDeviceClass"), kCFAllocatorDefault, 0);
-	if (!classNum) return NO;
+	if (!classNum) return 0;
 	uint8_t deviceClass = 0;
 	if (CFGetTypeID(classNum) == CFNumberGetTypeID()) {
 		CFNumberGetValue((CFNumberRef)classNum, kCFNumberSInt8Type, &deviceClass);
 	}
 	CFRelease(classNum);
-	return deviceClass == kHWGUSBHubDeviceClass;
+	return deviceClass;
+}
+
+-(BOOL)deviceIsHub:(io_object_t)device {
+	return [self deviceClassCode:device] == kHWGUSBHubDeviceClass;
 }
 
 // Human-readable label for the USB-IF's published base class codes
@@ -212,6 +226,28 @@ static const uint8_t kHWGUSBHubDeviceClass = 9;
 		case 0xFE: return NSLocalizedString(@"Application Specific", @"");
 		case 0xFF: return NSLocalizedString(@"Vendor Specific", @"");
 		default:   return nil;   // 0x00 = defined per-interface, not device — nothing useful to say
+	}
+}
+
+// Maps the same USB-IF base class codes used for `usbClassNameForClassCode:` above to one
+// of the device-type icons (Assets.xcassets) added for the "maximum icon coverage" pass —
+// nil whenever the class doesn't have a dedicated icon, which falls back to the plain
+// generic USB-On icon in the caller. Deliberately narrow: only classes with an unambiguous,
+// standard meaning get their own icon (same "never force a guess" philosophy as Volume
+// Monitor's device-category classifier) — e.g. 0x00 (defined per-interface) and 0xFF
+// (vendor-specific) say nothing reliable about what the device actually is.
+-(NSString *)usbIconNameForClassCode:(uint8_t)classCode isHub:(BOOL)isHub {
+	if (isHub) return @"USB-TypeHub";
+	switch (classCode) {
+		case 0x01: return @"USB-TypeAudio";       // Audio
+		case 0x03: return @"USB-TypeHID";         // HID (Keyboard/Mouse) — HID doesn't
+		                                           // distinguish the two without reading
+		                                           // the Report Descriptor.
+		case 0x07: return @"USB-TypePrinter";      // Printer
+		case 0x0B: return @"USB-TypeSmartCard";    // Smart Card
+		case 0x0E: return @"USB-TypeWebcam";       // Video
+		case 0xE0: return @"USB-TypeWireless";     // Wireless Controller
+		default:   return nil;
 	}
 }
 
@@ -320,11 +356,13 @@ static const uint8_t kHWGUSBHubDeviceClass = 9;
 			NSString *deviceName = [NSString stringWithCString:deviceNameChars encoding:NSASCIIStringEncoding];
 			if (deviceName) {
 				deviceName = [self deviceBusNameSwap:deviceName];
-				BOOL isHub = [self deviceIsHub:thisObject];
+				uint8_t classCode = [self deviceClassCode:thisObject];
+				BOOL isHub = (classCode == kHWGUSBHubDeviceClass);
+				NSString *iconName = [self usbIconNameForClassCode:classCode isHub:isHub];
 				NSString *extraInfo = [self usbExtraInfoForDevice:thisObject];
 
 				// NSLog(@"USB Device Attached: %@" , deviceName);
-				[self usbDeviceID:deviceID name:deviceName added:YES isHub:isHub extraInfo:extraInfo];
+				[self usbDeviceID:deviceID name:deviceName added:YES isHub:isHub iconName:iconName extraInfo:extraInfo];
 			}
 		}
 
@@ -364,9 +402,9 @@ static void usbDeviceAdded(void *refCon, io_iterator_t iterator) {
 			BOOL isHub = [self deviceIsHub:thisObject];
 
 			// NSLog(@"USB Device Detached: %@" , deviceName);
-			// No extraInfo on removal: registry properties are frequently unreadable
-			// from a terminating entry by the time this callback fires.
-			[self usbDeviceID:deviceID name:deviceName added:NO isHub:isHub extraInfo:nil];
+			// No extraInfo or device-type icon on removal: registry properties are
+			// frequently unreadable from a terminating entry by the time this callback fires.
+			[self usbDeviceID:deviceID name:deviceName added:NO isHub:isHub iconName:nil extraInfo:nil];
 		}
 		
 		IOObjectRelease(thisObject);
@@ -399,12 +437,9 @@ static void usbDeviceRemoved(void *refCon, io_iterator_t iterator) {
 	return NSLocalizedString(@"USB Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	static NSImage *_icon = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		_icon = [NSImage imageNamed:@"HWGPrefsUSB"];
-	});
-	return _icon;
+	// Resolved fresh every call (not cached) since this is user-customizable via the Icons
+	// tab's "Module Icon (Sidebar)" row — see the same note on AudioMonitor's -preferenceIcon.
+	return HWGResolveIconNamed(@"HWGPrefsUSB-Module");
 }
 // F33: single generic handler for every per-field visibility checkbox. Each checkbox's
 // `identifier` carries the NSUserDefaults key it controls.
@@ -425,7 +460,15 @@ static void usbDeviceRemoved(void *refCon, io_iterator_t iterator) {
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
-	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 380, 200)];
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 260)];
+	// AppDelegate sizes this view once via -setFrameSize: to match the prefs window's
+	// container, then never again — without an autoresizing mask this view (and its
+	// visible tab box) stays whatever size it was created at even if the user later
+	// resizes the Preferences window. Track the container's size going forward.
+	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+	// --- Tab: General (pre-existing "Notification fields" content) ---
+	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, 200)];
 
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Notification fields", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
@@ -455,7 +498,57 @@ static void usbDeviceRemoved(void *refCon, io_iterator_t iterator) {
 		previous = row;
 	}
 
-	prefsView = v;
+	NSTabViewItem *generalItem = [[NSTabViewItem alloc] initWithIdentifier:@"general"];
+	generalItem.label = NSLocalizedString(@"General", @"");
+	generalItem.view = v;
+	[tabs addTabViewItem:generalItem];
+
+	// --- Tab: Icons (per-event icon overrides) ---
+	CGFloat iconsPad = 16;
+	CGFloat iconsWidth = tabs.bounds.size.width - 2 * iconsPad;
+
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
+		@[@"Module Icon (Sidebar)", @"HWGPrefsUSB-Module"],
+		@[@"Hub", @"USB-TypeHub"],
+		@[@"Keyboard/Mouse", @"USB-TypeHID"],
+		@[@"Webcam", @"USB-TypeWebcam"],
+		@[@"Printer", @"USB-TypePrinter"],
+		@[@"Smart Card", @"USB-TypeSmartCard"],
+		@[@"Audio", @"USB-TypeAudio"],
+		@[@"Wireless", @"USB-TypeWireless"],
+		@[@"Connected (generic)", @"USB-On"],
+		@[@"Disconnected", @"USB-Off"],
+	]];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	NSTextField *iconsHeader = [NSTextField labelWithString:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.font = [NSFont boldSystemFontOfSize:12];
+	iconsHeader.textColor = [NSColor secondaryLabelColor];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+	CGFloat iconsGap = 12;
+
+	NSView *iconsContent = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, iconsHeaderH + iconsGap + iconPickerH + 2 * iconsPad)];
+	iconsHeader.frame = NSMakeRect(iconsPad, iconsPad, iconsWidth, iconsHeaderH);
+	[iconsContent addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(iconsPad, iconsPad + iconsHeaderH + iconsGap, iconsWidth, iconPickerH);
+	[iconsContent addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, 260)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsContent;
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
+
+	prefsView = tabs;
 	return prefsView;
 }
 

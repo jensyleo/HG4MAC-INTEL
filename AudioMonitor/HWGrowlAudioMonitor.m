@@ -6,6 +6,8 @@
 // compile with ARC: -fobjc-arc
 #import "HWGrowlAudioMonitor.h"
 #import <CoreAudio/CoreAudio.h>
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 
 // F19: Audio Monitor reports two kinds of facts, deliberately kept separate:
 //
@@ -242,93 +244,17 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 	return [lines count] ? [lines componentsJoinedByString:@"\n"] : nil;
 }
 
-// Every other monitor's preference/notification icon is a colored PNG with its own settled
-// color (Bluetooth = deep blue-indigo, Network = cyan/turquoise, Thunderbolt = yellow,
-// Thermal = red, Power = green/multicolor). Purple and sky-blue were both tried and rejected
-// (blue read too close to Bluetooth/Network's existing blue tones) — orange is the one warm
-// tone still unclaimed, and reads clearly distinct from every other monitor's color at a glance.
-+(NSColor *)accentColor {
-	return [NSColor systemOrangeColor];
-}
-
-// Hand-drawn outline icon (transparent background, no colored badge) — matches Thermal
-// Monitor's convention (HWGPrefsThermal.png: a plain colored glyph on transparent, no
-// squircle container) rather than Bluetooth's solid-badge convention; the badge style was
-// tried first and rejected. Shape follows a user-supplied reference: a rounded speaker
-// cabinet with two concentric driver rings (tweeter + woofer) and symmetric sound-wave arcs
-// fanning out on both sides — stroke-only, no fill, single accent color throughout.
--(NSImage *)speakerIconWithWaves:(BOOL)showWaves {
-	NSSize size = NSMakeSize(128, 128);
-	NSImage *image = [NSImage imageWithSize:size flipped:NO drawingHandler:^BOOL(NSRect rect) {
-		NSColor *color = [HWGrowlAudioMonitor accentColor];
-		[color setStroke];
-
-		CGFloat lineWidth = rect.size.width * 0.045;
-		CGFloat bodyW = rect.size.width * 0.40;
-		CGFloat bodyH = rect.size.height * 0.74;
-		NSRect bodyRect = NSMakeRect(NSMidX(rect) - bodyW / 2.0, NSMidY(rect) - bodyH / 2.0, bodyW, bodyH);
-
-		NSBezierPath *body = [NSBezierPath bezierPathWithRoundedRect:bodyRect xRadius:bodyW * 0.28 yRadius:bodyW * 0.28];
-		body.lineWidth = lineWidth;
-		[body stroke];
-
-		// Tweeter (small, upper) and woofer (larger, lower), each an outlined ring with a
-		// small filled center dot — same layered-circle language as the reference image.
-		CGFloat tweeterD = bodyW * 0.42;
-		NSPoint tweeterCenter = NSMakePoint(NSMidX(bodyRect), NSMaxY(bodyRect) - bodyH * 0.24);
-		[self strokeDriverRingAtCenter:tweeterCenter diameter:tweeterD lineWidth:lineWidth color:color];
-
-		CGFloat wooferD = bodyW * 0.62;
-		NSPoint wooferCenter = NSMakePoint(NSMidX(bodyRect), NSMinY(bodyRect) + bodyH * 0.30);
-		[self strokeDriverRingAtCenter:wooferCenter diameter:wooferD lineWidth:lineWidth color:color];
-
-		if (showWaves) {
-			CGFloat waveLineWidth = lineWidth * 0.85;
-			for (NSInteger i = 0; i < 3; i++) {
-				CGFloat radius = rect.size.width * (0.16 + i * 0.085);
-				CGFloat spanDegrees = 70.0;
-
-				NSBezierPath *rightArc = [NSBezierPath bezierPath];
-				[rightArc appendBezierPathWithArcWithCenter:NSMakePoint(NSMaxX(bodyRect), NSMidY(rect))
-													  radius:radius
-												  startAngle:-spanDegrees / 2.0
-													endAngle:spanDegrees / 2.0];
-				rightArc.lineWidth = waveLineWidth;
-				[rightArc stroke];
-
-				NSBezierPath *leftArc = [NSBezierPath bezierPath];
-				[leftArc appendBezierPathWithArcWithCenter:NSMakePoint(NSMinX(bodyRect), NSMidY(rect))
-													 radius:radius
-												 startAngle:180.0 - spanDegrees / 2.0
-												   endAngle:180.0 + spanDegrees / 2.0];
-				leftArc.lineWidth = waveLineWidth;
-				[leftArc stroke];
-			}
-		}
-		return YES;
-	}];
-	return image;
-}
-
--(void)strokeDriverRingAtCenter:(NSPoint)center diameter:(CGFloat)diameter lineWidth:(CGFloat)lineWidth color:(NSColor *)color {
-	NSRect ringRect = NSMakeRect(center.x - diameter / 2.0, center.y - diameter / 2.0, diameter, diameter);
-	NSBezierPath *ring = [NSBezierPath bezierPathWithOvalInRect:ringRect];
-	ring.lineWidth = lineWidth * 0.8;
-	[ring stroke];
-
-	CGFloat dotDiameter = diameter * 0.22;
-	NSRect dotRect = NSMakeRect(center.x - dotDiameter / 2.0, center.y - dotDiameter / 2.0, dotDiameter, dotDiameter);
-	[color setFill];
-	[[NSBezierPath bezierPathWithOvalInRect:dotRect] fill];
-}
 
 -(NSData *)iconDataForSymbol:(NSString *)symbolName {
 	// symbolName no longer selects an SF Symbol — kept as the call sites' "connected vs
-	// disconnected vs default-change" signal: waves show for an active/connected/current
-	// state, omitted for a disconnected one (visually "silent"), matching how the reference
-	// icon's waves imply sound actively playing.
-	BOOL showWaves = ![symbolName isEqualToString:@"speaker.slash.fill"];
-	return [[self speakerIconWithWaves:showWaves] TIFFRepresentation];
+	// disconnected vs default-change" signal: the active-state PNG shows for an
+	// active/connected/current state, the muted/"-Off" variant for a disconnected one,
+	// matching how the hand-drawn icon's waves used to imply sound actively playing before
+	// this was replaced with a proper designed PNG (Assets.xcassets) instead of a
+	// stroke-drawn vector built at runtime.
+	BOOL connected = ![symbolName isEqualToString:@"speaker.slash.fill"];
+	NSString *imageName = connected ? @"AudioMonitor-Icon" : @"AudioMonitor-Icon-Off";
+	return [HWGResolveIconNamed(imageName) TIFFRepresentation];
 }
 
 #pragma mark Device connect/disconnect
@@ -467,12 +393,12 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 	return NSLocalizedString(@"Audio Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	static NSImage *_icon = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		_icon = [self speakerIconWithWaves:YES];
-	});
-	return _icon;
+	// Resolved fresh every call (not cached) since this is user-customizable — AppDelegate's
+	// module list calls this each time it draws a row, so there's no need to cache it
+	// ourselves, and caching it risked showing a stale icon until the app was restarted.
+	// Own dedicated default name ("-Module"), separate from the "Connected" notification
+	// icon's "AudioMonitor-Icon" — customizing one must never silently change the other.
+	return HWGResolveIconNamed(@"AudioMonitor-Icon-Module");
 }
 
 -(IBAction)fieldToggleChanged:(NSButton*)sender {
@@ -492,7 +418,10 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
-	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 460, 230)];
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 230)];
+	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 230)];
 
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Notification fields", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
@@ -525,7 +454,48 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		previous = row;
 	}
 
-	prefsView = v;
+	NSTabViewItem *generalItem = [[NSTabViewItem alloc] initWithIdentifier:@"general"];
+	generalItem.label = NSLocalizedString(@"General", @"");
+	generalItem.view = v;
+	[tabs addTabViewItem:generalItem];
+
+	CGFloat iconsPad = 16;
+	CGFloat iconsWidth = 560 - 2 * iconsPad;
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
+		@[@"Module Icon (Sidebar)", @"AudioMonitor-Icon-Module"],
+		@[@"Connected", @"AudioMonitor-Icon"],
+		@[@"Disconnected/Muted", @"AudioMonitor-Icon-Off"],
+	]];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	NSTextField *iconsHeader = [NSTextField labelWithString:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.font = [NSFont boldSystemFontOfSize:12];
+	iconsHeader.textColor = [NSColor secondaryLabelColor];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+	CGFloat iconsGap = 12;
+
+	NSView *iconsContent = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, 560, iconsHeaderH + iconsGap + iconPickerH + 2 * iconsPad)];
+	iconsHeader.frame = NSMakeRect(iconsPad, iconsPad, iconsWidth, iconsHeaderH);
+	[iconsContent addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(iconsPad, iconsPad + iconsHeaderH + iconsGap, iconsWidth, iconPickerH);
+	[iconsContent addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 560, 160)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsContent;
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
+
+	prefsView = tabs;
 	return prefsView;
 }
 

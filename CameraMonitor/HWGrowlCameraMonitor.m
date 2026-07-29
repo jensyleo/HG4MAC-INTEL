@@ -5,6 +5,8 @@
 
 // compile with ARC: -fobjc-arc
 #import "HWGrowlCameraMonitor.h"
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 #import <AVFoundation/AVFoundation.h>
 #import <CoreAudio/CoreAudio.h>       // shares its transport-type FourCharCode space with AVCaptureDevice.transportType
 #import <CoreMediaIO/CoreMediaIO.h>
@@ -283,63 +285,16 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 	}
 }
 
-#pragma mark Icon (hand-drawn outline, transparent background, no colored badge — matches
-#pragma mark Thermal Monitor's convention, same style decision as Audio Monitor)
+#pragma mark Icon
 
-+(NSColor *)accentColor {
-	// Explicit choice (19-jul-2026): the same blue Bluetooth Monitor uses, confirmed with
-	// the user despite the two monitors then sharing a color — unlike the earlier
-	// Audio-vs-Bluetooth/Network clash (which was an accidental default nobody asked for),
-	// this one is intentional.
-	return [NSColor colorWithRed:35.0/255.0 green:71.0/255.0 blue:232.0/255.0 alpha:1.0];
-}
-
+// Designed PNGs (Assets.xcassets) — replaces the hand-drawn single-blue outline glyph this
+// used to render at runtime. Redesigned with more color variety per the user's feedback
+// (coral body + blue lens ring + yellow highlight) instead of the single blue tone shared
+// with Bluetooth Monitor. The in-use/not-in-use distinction that the old glyph conveyed via
+// a filled-vs-outlined lens center is preserved as two separate PNGs (a filled red "REC"
+// dot + matching indicator light for in-use, a plain yellow highlight otherwise).
 -(NSImage *)cameraIconInUse:(BOOL)inUse {
-	NSSize size = NSMakeSize(128, 128);
-	NSImage *image = [NSImage imageWithSize:size flipped:NO drawingHandler:^BOOL(NSRect rect) {
-		NSColor *color = [HWGrowlCameraMonitor accentColor];
-		[color setStroke];
-		CGFloat lineWidth = rect.size.width * 0.05;
-
-		// Camera body: rounded rect, slightly wider than tall.
-		CGFloat bodyW = rect.size.width * 0.76;
-		CGFloat bodyH = rect.size.height * 0.54;
-		NSRect bodyRect = NSMakeRect(NSMidX(rect) - bodyW / 2.0, NSMidY(rect) - bodyH / 2.0 - rect.size.height * 0.04, bodyW, bodyH);
-		NSBezierPath *body = [NSBezierPath bezierPathWithRoundedRect:bodyRect xRadius:bodyH * 0.22 yRadius:bodyH * 0.22];
-		body.lineWidth = lineWidth;
-		[body stroke];
-
-		// Lens: concentric circles, centered in the body.
-		CGFloat lensD = bodyH * 0.82;
-		NSPoint lensCenter = NSMakePoint(NSMidX(bodyRect), NSMidY(bodyRect));
-		NSRect lensOuter = NSMakeRect(lensCenter.x - lensD / 2.0, lensCenter.y - lensD / 2.0, lensD, lensD);
-		NSBezierPath *outerRing = [NSBezierPath bezierPathWithOvalInRect:lensOuter];
-		outerRing.lineWidth = lineWidth * 0.85;
-		[outerRing stroke];
-
-		CGFloat innerD = lensD * 0.48;
-		NSRect lensInner = NSMakeRect(lensCenter.x - innerD / 2.0, lensCenter.y - innerD / 2.0, innerD, innerD);
-		if (inUse) {
-			[color setFill];
-			[[NSBezierPath bezierPathWithOvalInRect:lensInner] fill];
-		} else {
-			NSBezierPath *innerRing = [NSBezierPath bezierPathWithOvalInRect:lensInner];
-			innerRing.lineWidth = lineWidth * 0.7;
-			[innerRing stroke];
-		}
-
-		// Small viewfinder "bump" on top-right, like a compact camera's flash/viewfinder —
-		// purely decorative, keeps the glyph reading as "camera" rather than a plain circle.
-		CGFloat bumpW = bodyW * 0.22;
-		CGFloat bumpH = bodyH * 0.28;
-		NSRect bumpRect = NSMakeRect(NSMaxX(bodyRect) - bumpW * 1.6, NSMaxY(bodyRect) - 1, bumpW, bumpH);
-		NSBezierPath *bump = [NSBezierPath bezierPathWithRoundedRect:bumpRect xRadius:bumpH * 0.25 yRadius:bumpH * 0.25];
-		bump.lineWidth = lineWidth * 0.85;
-		[bump stroke];
-
-		return YES;
-	}];
-	return image;
+	return HWGResolveIconNamed(inUse ? @"CameraMonitor-Icon-InUse" : @"CameraMonitor-Icon");
 }
 
 -(NSData *)iconDataInUse:(BOOL)inUse {
@@ -352,12 +307,11 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 	return NSLocalizedString(@"Camera Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	static NSImage *_icon = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		_icon = [self cameraIconInUse:NO];
-	});
-	return _icon;
+	// Resolved fresh every call (not cached) since this is user-customizable — see the same
+	// note on AudioMonitor's -preferenceIcon. Own dedicated default name ("-Module"),
+	// separate from -cameraIconInUse:'s "CameraMonitor-Icon" — customizing one must never
+	// silently change the other.
+	return HWGResolveIconNamed(@"CameraMonitor-Icon-Module");
 }
 
 -(IBAction)fieldToggleChanged:(NSButton*)sender {
@@ -377,7 +331,10 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
-	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 460, 190)];
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 190)];
+	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 190)];
 
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Notification fields", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
@@ -406,7 +363,48 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 		previous = row;
 	}
 
-	prefsView = v;
+	NSTabViewItem *generalItem = [[NSTabViewItem alloc] initWithIdentifier:@"general"];
+	generalItem.label = NSLocalizedString(@"General", @"");
+	generalItem.view = v;
+	[tabs addTabViewItem:generalItem];
+
+	CGFloat iconsPad = 16;
+	CGFloat iconsWidth = 560 - 2 * iconsPad;
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
+		@[@"Module Icon (Sidebar)", @"CameraMonitor-Icon-Module"],
+		@[@"In Use", @"CameraMonitor-Icon-InUse"],
+		@[@"Idle", @"CameraMonitor-Icon"],
+	]];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	NSTextField *iconsHeader = [NSTextField labelWithString:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.font = [NSFont boldSystemFontOfSize:12];
+	iconsHeader.textColor = [NSColor secondaryLabelColor];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+	CGFloat iconsGap = 12;
+
+	NSView *iconsContent = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, 560, iconsHeaderH + iconsGap + iconPickerH + 2 * iconsPad)];
+	iconsHeader.frame = NSMakeRect(iconsPad, iconsPad, iconsWidth, iconsHeaderH);
+	[iconsContent addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(iconsPad, iconsPad + iconsHeaderH + iconsGap, iconsWidth, iconPickerH);
+	[iconsContent addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 560, 160)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsContent;
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
+
+	prefsView = tabs;
 	return prefsView;
 }
 

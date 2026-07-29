@@ -7,29 +7,50 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		09A9FD093DEAA959B8A4E3A2 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		102CD950EE257885DEB7B39F /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		1BD1FA8BD4848AF07CB75904 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
+		1C3EE35E7BC5F7BC8FDABEC3 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		2306EFF017AF6FB84306056E /* GamepadMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = 26C644079E7A4E5D14DB48FE /* GamepadMonitor.hwgrowlmonitor */; };
+		25CFE1BF77B64692A23DFF54 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		2610B3B9CE26B30E392F848D /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		2AEB2E72E47527261A9C6719 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		2D15980CD0C545B80B815C23 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8A6891761CDACC2C4BBD62D /* Cocoa.framework */; };
 		2D3FD65FC252E022B2F3FAE2 /* CameraMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = 061E1C1E7865BA9423D1E7A9 /* CameraMonitor.hwgrowlmonitor */; };
 		3ED86BF4A736AB28DA4EDF92 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 57A1D1B121E16AC6F28773C0 /* InfoPlist.strings */; };
+		48143DB661E5217D88BAE98E /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		49BD6D7CCFF1DD15A3EF64E0 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
+		4A24F910DB8D388BA641520C /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		4B9382BEF743D90151106541 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		50DA0C0F2E5BF12225A7A88E /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		51E2BA667CD73FE44F05C8F3 /* AudioMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = 5B65B1281479F5D1AB055AF2 /* AudioMonitor.hwgrowlmonitor */; };
+		527149EFE0EC427C018D0A03 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		611AACBCBD130F1B08545540 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		650C5C466791A12422E68C56 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		73292A1EBEF889078FD97E7C /* HWGrowlPrinterMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 364B05255AE7966EB3FC727E /* HWGrowlPrinterMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		767F7955642A7B3837652587 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
 		7D25EFA051FA85B2290A318C /* CoreMediaIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F583E88763D7AB0582931453 /* CoreMediaIO.framework */; };
+		80FFEC0D9781B3F2803A921B /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		8151878EE05A8519BAAA260E /* HWGrowlPrinterMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = 85E96DFD670D8687C1AF1204 /* HWGrowlPrinterMonitor.h */; };
+		85FE089FE8189CFA9518ADBA /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		8D98EDC53C4EDC394A8D88F5 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		8FEC06385C3C751B301D1150 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		932173D9163A43F200D5790F /* NetworkMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = BCB807471551A6E90088C69A /* NetworkMonitor.hwgrowlmonitor */; };
 		932173DA163A43F200D5790F /* VolumeMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = BCECA38C155322D200F49280 /* VolumeMonitor.hwgrowlmonitor */; };
 		932173DB163A43F200D5790F /* USBMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = BC523C221555686000548427 /* USBMonitor.hwgrowlmonitor */; };
 		932173DC163A43F200D5790F /* BluetoothMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = BCA26B5D155585C0009C5ABC /* BluetoothMonitor.hwgrowlmonitor */; };
 		932173DE163A43F200D5790F /* PowerMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = BCA26BB31555BB1A009C5ABC /* PowerMonitor.hwgrowlmonitor */; };
 		9B0FA391925F3173D42B9601 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2EBF27A41B83BDC3603D33B7 /* CoreAudio.framework */; };
+		9E31693F38F387F0281DC006 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		9F8FF31537EA3602E120FC83 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 7FCBFE2ED37C5077F1D96FD2 /* InfoPlist.strings */; };
 		A4071261BA0B577462D35581 /* GameController.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8AAD83A132BDE2CE4CAA3EC /* GameController.framework */; };
+		A500019D4CE7C95958C7F7D4 /* HWGNotificationHistoryStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		A7A1751089FA371795A56E89 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		AA000001000000000000AA01 /* GrowlApplicationBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000AA00 /* GrowlApplicationBridge.m */; settings = {COMPILER_FLAGS = "-fobjc-arc -fobjc-exceptions"; }; };
 		AA000002000000000000AA01 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000002000000000000AA00 /* UserNotifications.framework */; };
 		AA000003000000000000AA01 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000003000000000000AA00 /* CoreBluetooth.framework */; };
 		AEEBCE53BBD592F7A0CB9B6A /* HWGrowlCameraMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 45F058C4C7F8BF201489D77E /* HWGrowlCameraMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		AF112BFAC1D5162DBF3EE2C8 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		B1AC66D5EF7508BCDEB1C532 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
 		B571587085B3695D11DFFFBF /* HWGrowlAudioMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 207F0F159F573DA92C7635DF /* HWGrowlAudioMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		B5E2918489E75576EF497D74 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = E0C8A4DFC967BD9B78D4736D /* InfoPlist.strings */; };
@@ -74,7 +95,6 @@
 		BCB8074F1551A6EA0088C69A /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BCB8074D1551A6EA0088C69A /* InfoPlist.strings */; };
 		BCB8076A1551A7510088C69A /* HWGrowlNetworkMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = BCB807691551A7510088C69A /* HWGrowlNetworkMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		BCB8076F1551A82B0088C69A /* HWGrowlPluginController.m in Sources */ = {isa = PBXBuildFile; fileRef = BCB8076E1551A82A0088C69A /* HWGrowlPluginController.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
-		A500019D4CE7C95958C7F7D4 /* HWGNotificationHistoryStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		BCD4756A156BCDD000F81910 /* HWGImageTextCell.m in Sources */ = {isa = PBXBuildFile; fileRef = BCD47569156BCDD000F81910 /* HWGImageTextCell.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		BCE06FFC178CCBF500D7839A /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = BC4FC626155C05C700EE65EC /* Localizable.strings */; };
 		BCE3BC1C15C9619000B0BFFB /* TMSliderControl.m in Sources */ = {isa = PBXBuildFile; fileRef = BCE3BC1B15C9619000B0BFFB /* TMSliderControl.m */; };
@@ -98,6 +118,8 @@
 		C0FE0039C0FE0039C0FE0039 /* HWGrowlThermalMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = C0FE0038C0FE0038C0FE0038 /* HWGrowlThermalMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		C0FE003AC0FE003AC0FE003A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCB805EB155153330088C69A /* Cocoa.framework */; };
 		C43B44AC844B6147B6EC872A /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3229F2ABB9D0DAB3CCBC2B5D /* AVFoundation.framework */; };
+		C43E192713E8AD11A2EEF0F7 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		C5A5C88DF3EE67FD47654650 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		C6B4F5FE121048C29792E56C /* HWGrowlGamepadMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 87993853320360C61A0302FA /* HWGrowlGamepadMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		D1590001D1590001D1590001 /* DisplayMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = D1590002D1590002D1590002 /* DisplayMonitor.hwgrowlmonitor */; };
 		D1590003D1590003D1590003 /* HWGrowlDisplayMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = D1590004D1590004D1590004 /* HWGrowlDisplayMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
@@ -105,8 +127,12 @@
 		D1590011D1590011D1590011 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCB805EB155153330088C69A /* Cocoa.framework */; };
 		D159001BD159001BD159001B /* OSLog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D159001AD159001AD159001A /* OSLog.framework */; };
 		DF49BF1481255855F7DBBEC3 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C7CB0835A490148B193DA7DC /* Cocoa.framework */; };
+		E370236640346EE32197ED62 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		E8665A3D257B6D969E4C04F2 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 28C2064DAA83FBBCEAB47438 /* CoreAudio.framework */; };
+		E874E7781672A90F495BDDEE /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		F3309A688352DC2FF9E4EE6B /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		F499A7FBEA86A799A3027B0A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4EF950D6C0CAC8689AE2564A /* Cocoa.framework */; };
+		F9E589135F5241B7A0D3DE2F /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -352,16 +378,21 @@
 
 /* Begin PBXFileReference section */
 		002E18860471C7FA5DF3A775 /* PrinterMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; path = PrinterMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		0611B5A901C5502D6927AA52 /* HWGNotificationHistoryStore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HWGNotificationHistoryStore.h; sourceTree = "<group>"; };
 		061E1C1E7865BA9423D1E7A9 /* CameraMonitor.hwgrowlmonitor */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; name = CameraMonitor.hwgrowlmonitor; path = CameraMonitor.hwgrowlmonitor; sourceTree = BUILT_PRODUCTS_DIR; };
 		177BD1B00DAE17A0562B1E5B /* CameraMonitor-Prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "CameraMonitor-Prefix.pch"; sourceTree = "<group>"; };
+		1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HWGNotificationHistoryStore.m; sourceTree = "<group>"; };
 		207F0F159F573DA92C7635DF /* HWGrowlAudioMonitor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlAudioMonitor.m; sourceTree = "<group>"; };
 		26C644079E7A4E5D14DB48FE /* GamepadMonitor.hwgrowlmonitor */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; name = GamepadMonitor.hwgrowlmonitor; path = GamepadMonitor.hwgrowlmonitor; sourceTree = BUILT_PRODUCTS_DIR; };
 		28C2064DAA83FBBCEAB47438 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
 		2EB942F2FEFE48501FBD5CD3 /* HWGrowlCameraMonitor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = HWGrowlCameraMonitor.h; sourceTree = "<group>"; };
 		2EBF27A41B83BDC3603D33B7 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
 		3140A1A840848086373720F3 /* PrinterMonitor-Prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "PrinterMonitor-Prefix.pch"; sourceTree = "<group>"; };
+		31BEE37663A9BB2382DF937F /* HWGIconPickerView.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = HWGIconPickerView.h; sourceTree = "<group>"; };
 		3229F2ABB9D0DAB3CCBC2B5D /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		32C4D07D06AAE813831A914C /* HWGIconPickerView.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGIconPickerView.m; sourceTree = "<group>"; };
 		364B05255AE7966EB3FC727E /* HWGrowlPrinterMonitor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlPrinterMonitor.m; sourceTree = "<group>"; };
+		4037963D66E3B8B92B4F3D67 /* HWGIconOverrideStore.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = HWGIconOverrideStore.h; sourceTree = "<group>"; };
 		45F058C4C7F8BF201489D77E /* HWGrowlCameraMonitor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlCameraMonitor.m; sourceTree = "<group>"; };
 		46F9CF4C7B00E3F4F888628E /* GamepadMonitor-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "GamepadMonitor-Info.plist"; sourceTree = "<group>"; };
 		47EBEED5E9D3607346F0D598 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
@@ -369,6 +400,7 @@
 		57A1D1B121E16AC6F28773C0 /* InfoPlist.strings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5A7F3479CCCECB3B0FBE1265 /* InfoPlist.strings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5B65B1281479F5D1AB055AF2 /* AudioMonitor.hwgrowlmonitor */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; name = AudioMonitor.hwgrowlmonitor; path = AudioMonitor.hwgrowlmonitor; sourceTree = BUILT_PRODUCTS_DIR; };
+		64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGIconOverrideStore.m; sourceTree = "<group>"; };
 		7FCBFE2ED37C5077F1D96FD2 /* InfoPlist.strings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		82120C8656FB1F225B38722B /* AudioMonitor-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "AudioMonitor-Info.plist"; sourceTree = "<group>"; };
 		8563B2B8C16F158DB6D273FF /* PrinterMonitor-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "PrinterMonitor-Info.plist"; sourceTree = "<group>"; };
@@ -451,8 +483,6 @@
 		BCB8076B1551A7820088C69A /* HardwareGrowlPlugin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = HardwareGrowlPlugin.h; path = ../HardwareGrowler/HardwareGrowlPlugin.h; sourceTree = "<group>"; };
 		BCB8076D1551A82A0088C69A /* HWGrowlPluginController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = HWGrowlPluginController.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		BCB8076E1551A82A0088C69A /* HWGrowlPluginController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HWGrowlPluginController.m; sourceTree = "<group>"; };
-		0611B5A901C5502D6927AA52 /* HWGNotificationHistoryStore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HWGNotificationHistoryStore.h; sourceTree = "<group>"; };
-		1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HWGNotificationHistoryStore.m; sourceTree = "<group>"; };
 		BCD47568156BCDD000F81910 /* HWGImageTextCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = HWGImageTextCell.h; path = ../Common/Source/HWGImageTextCell.h; sourceTree = "<group>"; };
 		BCD47569156BCDD000F81910 /* HWGImageTextCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = HWGImageTextCell.m; path = ../Common/Source/HWGImageTextCell.m; sourceTree = "<group>"; };
 		BCE3BC1A15C9619000B0BFFB /* TMSliderControl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TMSliderControl.h; path = ../external_dependencies/tmslidercontrol/TMSliderControl.h; sourceTree = "<group>"; };
@@ -858,6 +888,10 @@
 				1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */,
 				BCB807701551AB500088C69A /* External */,
 				BCB805F2155153330088C69A /* Supporting Files */,
+				4037963D66E3B8B92B4F3D67 /* HWGIconOverrideStore.h */,
+				64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */,
+				31BEE37663A9BB2382DF937F /* HWGIconPickerView.h */,
+				32C4D07D06AAE813831A914C /* HWGIconPickerView.m */,
 			);
 			path = HardwareGrowler;
 			sourceTree = "<group>";
@@ -1719,6 +1753,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				B571587085B3695D11DFFFBF /* HWGrowlAudioMonitor.m in Sources */,
+				4A24F910DB8D388BA641520C /* HWGIconOverrideStore.m in Sources */,
+				85FE089FE8189CFA9518ADBA /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1727,6 +1763,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				BC523C31155568A000548427 /* HWGrowlUSBMonitor.m in Sources */,
+				F9E589135F5241B7A0D3DE2F /* HWGIconOverrideStore.m in Sources */,
+				9E31693F38F387F0281DC006 /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1735,6 +1773,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				BC75526C1565291400CB0542 /* HWGrowlThunderboltMonitor.m in Sources */,
+				80FFEC0D9781B3F2803A921B /* HWGIconOverrideStore.m in Sources */,
+				50DA0C0F2E5BF12225A7A88E /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1743,6 +1783,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				BCA26B6C155585FA009C5ABC /* HWGrowlBluetoothMonitor.m in Sources */,
+				611AACBCBD130F1B08545540 /* HWGIconOverrideStore.m in Sources */,
+				650C5C466791A12422E68C56 /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1751,6 +1793,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				BCAA1764155784C800D9E4ED /* HWGrowlPowerMonitor.m in Sources */,
+				48143DB661E5217D88BAE98E /* HWGIconOverrideStore.m in Sources */,
+				09A9FD093DEAA959B8A4E3A2 /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1767,6 +1811,8 @@
 				BCD4756A156BCDD000F81910 /* HWGImageTextCell.m in Sources */,
 				BCE3BC1C15C9619000B0BFFB /* TMSliderControl.m in Sources */,
 				BCE3BC2715C9620E00B0BFFB /* GrowlOnSwitchLabel.m in Sources */,
+				25CFE1BF77B64692A23DFF54 /* HWGIconOverrideStore.m in Sources */,
+				E370236640346EE32197ED62 /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1786,6 +1832,8 @@
 				BCB8076A1551A7510088C69A /* HWGrowlNetworkMonitor.m in Sources */,
 				BCECA3651552D1D300F49280 /* NSStringAdditions.m in Sources */,
 				BCECA36B1552D24C00F49280 /* GrowlNetworkUtilities.m in Sources */,
+				A7A1751089FA371795A56E89 /* HWGIconOverrideStore.m in Sources */,
+				E874E7781672A90F495BDDEE /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1794,6 +1842,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				BCECA3AB155322FD00F49280 /* HWGrowlVolumeMonitor.m in Sources */,
+				4B9382BEF743D90151106541 /* HWGIconOverrideStore.m in Sources */,
+				F3309A688352DC2FF9E4EE6B /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1802,6 +1852,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				C0FE0039C0FE0039C0FE0039 /* HWGrowlThermalMonitor.m in Sources */,
+				8D98EDC53C4EDC394A8D88F5 /* HWGIconOverrideStore.m in Sources */,
+				AF112BFAC1D5162DBF3EE2C8 /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1810,6 +1862,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				D1590003D1590003D1590003 /* HWGrowlDisplayMonitor.m in Sources */,
+				1C3EE35E7BC5F7BC8FDABEC3 /* HWGIconOverrideStore.m in Sources */,
+				2AEB2E72E47527261A9C6719 /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1818,6 +1872,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				73292A1EBEF889078FD97E7C /* HWGrowlPrinterMonitor.m in Sources */,
+				C5A5C88DF3EE67FD47654650 /* HWGIconOverrideStore.m in Sources */,
+				2610B3B9CE26B30E392F848D /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1826,6 +1882,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				AEEBCE53BBD592F7A0CB9B6A /* HWGrowlCameraMonitor.m in Sources */,
+				527149EFE0EC427C018D0A03 /* HWGIconOverrideStore.m in Sources */,
+				102CD950EE257885DEB7B39F /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1834,6 +1892,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				C6B4F5FE121048C29792E56C /* HWGrowlGamepadMonitor.m in Sources */,
+				C43E192713E8AD11A2EEF0F7 /* HWGIconOverrideStore.m in Sources */,
+				8FEC06385C3C751B301D1150 /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -5,6 +5,8 @@
 
 // compile with ARC: -fobjc-arc
 #import "HWGrowlThermalMonitor.h"
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 
 // F34 candidate #3: per-level configurable thermal-state notifications. Each key gates
 // whether ENTERING that level (in either direction) fires a notification. All levels are
@@ -116,7 +118,7 @@ static BOOL HWGThermalBoolForKey(NSString *key, BOOL def) {
 		case NSProcessInfoThermalStateCritical:  name = @"Thermal-Critical"; break;
 		default: return nil;
 	}
-	return [[NSImage imageNamed:name] TIFFRepresentation];
+	return [HWGResolveIconNamed(name) TIFFRepresentation];
 }
 
 -(void)thermalStateChanged:(NSNotification *)note {
@@ -189,7 +191,9 @@ static BOOL HWGThermalBoolForKey(NSString *key, BOOL def) {
 	return NSLocalizedString(@"Thermal Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	return [NSImage imageNamed:@"HWGPrefsThermal"];
+	// Resolved fresh every call (not cached) since this is user-customizable via the Icons
+	// tab's "Module Icon (Sidebar)" row — see the same note on AudioMonitor's -preferenceIcon.
+	return HWGResolveIconNamed(@"HWGPrefsThermal-Module");
 }
 
 -(IBAction)fieldToggleChanged:(NSButton*)sender {
@@ -209,7 +213,10 @@ static BOOL HWGThermalBoolForKey(NSString *key, BOOL def) {
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
-	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 420, 300)];
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 300)];
+	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 300)];
 
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Notify when entering:", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
@@ -304,7 +311,51 @@ static BOOL HWGThermalBoolForKey(NSString *key, BOOL def) {
 		[testButton.leadingAnchor  constraintEqualToAnchor:v.leadingAnchor constant:16],
 	]];
 
-	prefsView = v;
+	NSTabViewItem *generalItem = [[NSTabViewItem alloc] initWithIdentifier:@"general"];
+	generalItem.label = NSLocalizedString(@"General", @"");
+	generalItem.view = v;
+	[tabs addTabViewItem:generalItem];
+
+	// --- Tab: Icons ---
+	CGFloat iconsPad = 16;
+	CGFloat iconsWidth = 560 - 2 * iconsPad;
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
+		@[@"Module Icon (Sidebar)", @"HWGPrefsThermal-Module"],
+		@[@"Nominal", @"Thermal-Nominal"],
+		@[@"Fair", @"Thermal-Fair"],
+		@[@"Serious", @"Thermal-Serious"],
+		@[@"Critical", @"Thermal-Critical"],
+	]];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	NSTextField *iconsHeader = [NSTextField labelWithString:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.font = [NSFont boldSystemFontOfSize:12];
+	iconsHeader.textColor = [NSColor secondaryLabelColor];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+	CGFloat iconsGap = 12;
+
+	NSView *iconsContent = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, 560, iconsHeaderH + iconsGap + iconPickerH + 2 * iconsPad)];
+	iconsHeader.frame = NSMakeRect(iconsPad, iconsPad, iconsWidth, iconsHeaderH);
+	[iconsContent addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(iconsPad, iconsPad + iconsHeaderH + iconsGap, iconsWidth, iconPickerH);
+	[iconsContent addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 560, 200)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsContent;
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
+
+	prefsView = tabs;
 	return prefsView;
 }
 

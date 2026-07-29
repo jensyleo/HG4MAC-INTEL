@@ -8,6 +8,8 @@
 
 // compile with ARC: -fobjc-arc
 #import "HWGrowlBluetoothMonitor.h"
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 #import <stdlib.h>
 #import <IOBluetooth/IOBluetooth.h>
 
@@ -81,11 +83,15 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	self.starting = NO;
 }
 
--(void)bluetoothName:(NSString*)name connected:(BOOL)connected extraInfo:(NSString *)extraInfo {
+-(void)bluetoothName:(NSString*)name connected:(BOOL)connected iconName:(NSString *)iconNameOverride extraInfo:(NSString *)extraInfo {
 	NSString *title = connected ? NSLocalizedString(@"Bluetooth Connection", @"") : NSLocalizedString(@"Bluetooth Disconnection", @"");
 
-    NSString *imageName = (connected ? @"Bluetooth-On" : @"Bluetooth-Off");
-	NSData *iconData = [[NSImage imageNamed:imageName] TIFFRepresentation];
+	// Device-type icon only applies on connect — same reasoning as the extra-info fields:
+	// `deviceClassMajor`/`deviceClassMinor` are read from the live `IOBluetoothDevice` at
+	// connect time; on disconnect this app never even has a device-type icon to offer (see
+	// call sites below), so this always falls back to the plain generic icon there.
+    NSString *imageName = connected ? (iconNameOverride ?: @"Bluetooth-On") : @"Bluetooth-Off";
+	NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
 	NSString *description = extraInfo ? [NSString stringWithFormat:@"%@\n%@", name, extraInfo] : name;
 
 	[delegate notifyWithName:connected ? @"BluetoothConnected" : @"BluetoothDisconnected"
@@ -138,6 +144,42 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	}
 }
 
+// Maps the same major/minor Class of Device values used by `bluetoothTypeLabelForDevice:`
+// to one of the device-type icons (Assets.xcassets) added for the "maximum icon coverage"
+// pass — nil whenever there's no dedicated icon for that specific sub-case (e.g. Imaging,
+// Toy, or an Audio minor class without one of the 4 icons made for Headphones/Speaker/
+// Headset/Microphone), which falls back to the plain generic Bluetooth-On icon.
+-(NSString *)bluetoothIconNameForDevice:(IOBluetoothDevice *)device {
+	BluetoothDeviceClassMajor major = [device deviceClassMajor];
+	BluetoothDeviceClassMinor minor = [device deviceClassMinor];
+
+	switch (major) {
+		case kBluetoothDeviceClassMajorComputer:       return @"BT-TypeComputer";
+		case kBluetoothDeviceClassMajorPhone:           return @"BT-TypePhone";
+		case kBluetoothDeviceClassMajorLANAccessPoint:  return @"BT-TypeAccessPoint";
+		case kBluetoothDeviceClassMajorWearable:        return @"BT-TypeWearable";
+		case kBluetoothDeviceClassMajorHealth:           return @"BT-TypeHealth";
+		case kBluetoothDeviceClassMajorPeripheral: {
+			uint8_t peripheralType = minor & 0x30;
+			if (peripheralType == 0x10) return @"BT-TypeKeyboard";
+			if (peripheralType == 0x20) return @"BT-TypeMouse";
+			if (peripheralType == 0x30) return @"BT-TypeCombo";
+			return nil;   // plain "Peripheral" — nothing more specific to show
+		}
+		case kBluetoothDeviceClassMajorAudio: {
+			switch (minor) {
+				case kBluetoothDeviceClassMinorAudioHeadset:
+				case kBluetoothDeviceClassMinorAudioHandsFree: return @"BT-TypeHeadset";
+				case kBluetoothDeviceClassMinorAudioMicrophone: return @"BT-TypeMicrophone";
+				case kBluetoothDeviceClassMinorAudioLoudspeaker: return @"BT-TypeSpeaker";
+				case kBluetoothDeviceClassMinorAudioHeadphones: return @"BT-TypeHeadphones";
+				default: return nil;   // Portable/Car/Hi-Fi/etc. — no dedicated icon made
+			}
+		}
+		default: return nil;   // Imaging, Toy, Miscellaneous/Unclassified
+	}
+}
+
 -(NSString *)bluetoothExtraInfoForDevice:(IOBluetoothDevice *)device {
 	NSMutableArray<NSString*> *lines = [NSMutableArray array];
 
@@ -164,7 +206,7 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 {
 	// No extraInfo on disconnect: class/paired-state read the same way as connect, but a
 	// disconnecting device's properties are less reliably available by the time this fires.
-	[self bluetoothName:[device name] connected:NO extraInfo:nil];
+	[self bluetoothName:[device name] connected:NO iconName:nil extraInfo:nil];
 	[note unregister];
 	NSString *address = [device addressString];
 	if (address) [disconnectNotifications removeObjectForKey:address];
@@ -191,13 +233,14 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 			// real, currently-connecting device (the non-`starting` path below) doesn't need
 			// this, since by then the app has been running for a while.
 			NSString *name = [device name];
+			NSString *iconName = [self bluetoothIconNameForDevice:device];
 			NSString *extraInfo = [self bluetoothExtraInfoForDevice:device];
 			__weak typeof(self) weakSelf = self;
 			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-				[weakSelf bluetoothName:name connected:YES extraInfo:extraInfo];
+				[weakSelf bluetoothName:name connected:YES iconName:iconName extraInfo:extraInfo];
 			});
 		} else {
-			[self bluetoothName:[device name] connected:YES extraInfo:[self bluetoothExtraInfoForDevice:device]];
+			[self bluetoothName:[device name] connected:YES iconName:[self bluetoothIconNameForDevice:device] extraInfo:[self bluetoothExtraInfoForDevice:device]];
 		}
 	}
 }
@@ -211,12 +254,9 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	return NSLocalizedString(@"Bluetooth Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	static NSImage *_icon = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		_icon = [NSImage imageNamed:@"HWGPrefsBluetooth"];
-	});
-	return _icon;
+	// Resolved fresh every call (not cached) since this is user-customizable via the Icons
+	// tab's "Module Icon (Sidebar)" row — see the same note on AudioMonitor's -preferenceIcon.
+	return HWGResolveIconNamed(@"HWGPrefsBluetooth-Module");
 }
 // F33: single generic handler for every per-field visibility checkbox. Each checkbox's
 // `identifier` carries the NSUserDefaults key it controls.
@@ -237,7 +277,15 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
-	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 380, 160)];
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 260)];
+	// AppDelegate sizes this view once via -setFrameSize: to match the prefs window's
+	// container, then never again — without an autoresizing mask this view (and its
+	// visible tab box) stays whatever size it was created at even if the user later
+	// resizes the Preferences window. Track the container's size going forward.
+	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+	// --- Tab: General (pre-existing "Notification fields" content) ---
+	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, 160)];
 
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Notification fields", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
@@ -266,7 +314,62 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 		previous = row;
 	}
 
-	prefsView = v;
+	NSTabViewItem *generalItem = [[NSTabViewItem alloc] initWithIdentifier:@"general"];
+	generalItem.label = NSLocalizedString(@"General", @"");
+	generalItem.view = v;
+	[tabs addTabViewItem:generalItem];
+
+	// --- Tab: Icons (per-event icon overrides) ---
+	CGFloat iconsPad = 16;
+	CGFloat iconsWidth = tabs.bounds.size.width - 2 * iconsPad;
+
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
+		@[@"Module Icon (Sidebar)", @"HWGPrefsBluetooth-Module"],
+		@[@"Computer", @"BT-TypeComputer"],
+		@[@"Phone", @"BT-TypePhone"],
+		@[@"Access Point", @"BT-TypeAccessPoint"],
+		@[@"Wearable", @"BT-TypeWearable"],
+		@[@"Health", @"BT-TypeHealth"],
+		@[@"Keyboard", @"BT-TypeKeyboard"],
+		@[@"Mouse", @"BT-TypeMouse"],
+		@[@"Combo", @"BT-TypeCombo"],
+		@[@"Headset", @"BT-TypeHeadset"],
+		@[@"Microphone", @"BT-TypeMicrophone"],
+		@[@"Speaker", @"BT-TypeSpeaker"],
+		@[@"Headphones", @"BT-TypeHeadphones"],
+		@[@"Connected (generic)", @"Bluetooth-On"],
+		@[@"Disconnected", @"Bluetooth-Off"],
+	]];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	NSTextField *iconsHeader = [NSTextField labelWithString:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.font = [NSFont boldSystemFontOfSize:12];
+	iconsHeader.textColor = [NSColor secondaryLabelColor];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+	CGFloat iconsGap = 12;
+
+	NSView *iconsContent = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, iconsHeaderH + iconsGap + iconPickerH + 2 * iconsPad)];
+	iconsHeader.frame = NSMakeRect(iconsPad, iconsPad, iconsWidth, iconsHeaderH);
+	[iconsContent addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(iconsPad, iconsPad + iconsHeaderH + iconsGap, iconsWidth, iconPickerH);
+	[iconsContent addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, 320)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsContent;
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
+
+	prefsView = tabs;
 	return prefsView;
 }
 

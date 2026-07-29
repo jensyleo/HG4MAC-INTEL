@@ -8,6 +8,8 @@
 
 // compile with ARC: -fobjc-arc
 #import "HWGrowlVolumeMonitor.h"
+#import "HWGIconOverrideStore.h"
+#import "HWGIconPickerView.h"
 #import <sys/param.h>
 #import <sys/mount.h>
 
@@ -59,7 +61,24 @@ static BOOL HWGVolumeBoolForKey(NSString *key, BOOL def) {
 // ("Identificación/parametrización de dispositivos DESCONOCIDOS" in TODO.md).
 #define HWG_EXTERNAL_DISK_SIZE_THRESHOLD_BYTES (400ULL * 1024 * 1024 * 1024)   // 400 GB
 
-static NSString *HWGDeviceCategoryFromInfo(NSString *protocol, NSString *mediaName, NSString *deviceModel, unsigned long long mediaSizeBytes, BOOL (^looksLikeCardReader)(NSString *)) {
+static NSString *HWGDeviceCategoryFromInfo(NSString *protocol, NSString *mediaName, NSString *deviceModel, NSString *mediaKind, unsigned long long mediaSizeBytes, BOOL (^looksLikeCardReader)(NSString *)) {
+	// Optical media (kDADiskDescriptionMediaKindKey, e.g. "CD-ROM"/"DVD-ROM"/"Blu-ray Disc")
+	// and network shares (kDADiskDescriptionDeviceProtocolKey == "SMB"/"AFP"/"NFS") are both
+	// unambiguous, standard-field signals — unlike the SD/pendrive/external-disk guesswork
+	// below, there's no real risk of misclassifying these, so they're checked first and
+	// don't need the same "never force a guess" caution.
+	if ([mediaKind length] &&
+		([mediaKind rangeOfString:@"CD" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+		 [mediaKind rangeOfString:@"DVD" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+		 [mediaKind rangeOfString:@"Blu-ray" options:NSCaseInsensitiveSearch].location != NSNotFound)) {
+		return @"Optical";
+	}
+	if ([protocol caseInsensitiveCompare:@"SMB"] == NSOrderedSame ||
+		[protocol caseInsensitiveCompare:@"AFP"] == NSOrderedSame ||
+		[protocol caseInsensitiveCompare:@"NFS"] == NSOrderedSame) {
+		return @"NAS";
+	}
+
 	if ([protocol caseInsensitiveCompare:@"Secure Digital"] == NSOrderedSame) return @"SDCard";
 	if (looksLikeCardReader(mediaName) || looksLikeCardReader(deviceModel)) return @"SDCard";
 
@@ -129,7 +148,7 @@ static BOOL HWGCopyVolumeFileSystemInfo(NSString *path, NSString **outFSType, un
 	static NSImage *_ejectIconImage = nil;
 	static dispatch_once_t onceToken;
 	dispatch_once(&onceToken, ^{
-		_ejectIconImage = [NSImage imageNamed:@"DisksVolumes-Eject"];
+		_ejectIconImage = HWGResolveIconNamed(@"DisksVolumes-Eject");
 	});
 	return _ejectIconImage;
 }
@@ -140,7 +159,7 @@ static BOOL HWGCopyVolumeFileSystemInfo(NSString *path, NSString **outFSType, un
 	dispatch_once(&onceToken, ^{
 		// Custom colored mount icon from the asset catalog (replaces the old
 		// generic SF Symbol "externaldrive").
-		_mountIconData = [[NSImage imageNamed:@"DisksVolumes-Mounted"] TIFFRepresentation];
+		_mountIconData = [HWGResolveIconNamed(@"DisksVolumes-Mounted") TIFFRepresentation];
 	});
 	return _mountIconData;
 }
@@ -432,8 +451,9 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 		NSString *protocol = desc[(__bridge NSString *)kDADiskDescriptionDeviceProtocolKey];
 		NSString *mediaName = desc[(__bridge NSString *)kDADiskDescriptionMediaNameKey];
 		NSString *deviceModel = desc[(__bridge NSString *)kDADiskDescriptionDeviceModelKey];
+		NSString *mediaKind = desc[(__bridge NSString *)kDADiskDescriptionMediaKindKey];
 		NSNumber *mediaSize = desc[(__bridge NSString *)kDADiskDescriptionMediaSizeKey];
-		NSString *category = HWGDeviceCategoryFromInfo(protocol, mediaName, deviceModel,
+		NSString *category = HWGDeviceCategoryFromInfo(protocol, mediaName, deviceModel, mediaKind,
 			[mediaSize unsignedLongLongValue], ^BOOL(NSString *s) { return [self stringContainsCardReaderToken:s]; });
 		if (category) self.groupDeviceCategory[groupKey] = category;
 	}
@@ -640,7 +660,7 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 	// generic radioactive-symbol one, when the best-effort classifier had enough to go on.
 	NSString *category = self.groupDeviceCategory[groupKey];
 	NSString *iconName = HWGDeviceIconNameForCategory(category, YES) ?: @"Device-Critical";
-	NSData *icon = [[NSImage imageNamed:iconName] TIFFRepresentation];
+	NSData *icon = [HWGResolveIconNamed(iconName) TIFFRepresentation];
 	[delegate notifyWithName:@"VolumeNotReadable"
 							 title:NSLocalizedString(@"Disk Not Readable", @"")
 					 description:description
@@ -748,8 +768,9 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 		NSString *protocol = desc[(__bridge NSString *)kDADiskDescriptionDeviceProtocolKey];
 		NSString *mediaName = desc[(__bridge NSString *)kDADiskDescriptionMediaNameKey];
 		NSString *deviceModel = desc[(__bridge NSString *)kDADiskDescriptionDeviceModelKey];
+		NSString *mediaKind = desc[(__bridge NSString *)kDADiskDescriptionMediaKindKey];
 		NSNumber *mediaSize = desc[(__bridge NSString *)kDADiskDescriptionMediaSizeKey];
-		category = HWGDeviceCategoryFromInfo(protocol, mediaName, deviceModel,
+		category = HWGDeviceCategoryFromInfo(protocol, mediaName, deviceModel, mediaKind,
 			[mediaSize unsignedLongLongValue], ^BOOL(NSString *s) { return [self stringContainsCardReaderToken:s]; });
 	}
 	CFRelease(disk);
@@ -812,7 +833,7 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 		// Finder eject, no -volumeWillUnmount: firing, path already gone by then).
 		if (category && [volume path]) self.pathDeviceCategory[[volume path]] = category;
 		NSString *iconName = HWGDeviceIconNameForCategory(category, NO);
-		if (iconName) iconData = [[NSImage imageNamed:iconName] TIFFRepresentation];
+		if (iconName) iconData = [HWGResolveIconNamed(iconName) TIFFRepresentation];
 	} else {
 		// Bug found live (23-jul-2026): unmount always showed the plain generic eject
 		// icon, even for a device the mount notice had just identified specifically
@@ -824,7 +845,7 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 		// eject icon (per explicit user request — not a new badge design).
 		NSString *category = self.pathDeviceCategory[[volume path]] ?: [volume deviceCategory];
 		NSString *iconName = HWGDeviceIconNameForCategoryVariant(category, @"Unmounted");
-		if (iconName) iconData = [[NSImage imageNamed:iconName] TIFFRepresentation];
+		if (iconName) iconData = [HWGResolveIconNamed(iconName) TIFFRepresentation];
 		if ([volume path]) [self.pathDeviceCategory removeObjectForKey:[volume path]];
 	}
 
@@ -1003,12 +1024,9 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 	return NSLocalizedString(@"Volume Monitor", @"");
 }
 -(NSImage*)preferenceIcon {
-	static NSImage *_icon = nil;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-		_icon = [NSImage imageNamed:@"HWGPrefsDrivesVolumes"];
-	});
-	return _icon;
+	// Resolved fresh every call (not cached) since this is user-customizable via the Icons
+	// tab's "Module Icon (Sidebar)" row — see the same note on AudioMonitor's -preferenceIcon.
+	return HWGResolveIconNamed(@"HWGPrefsDrivesVolumes-Module");
 }
 // F33: single generic handler for every per-field visibility checkbox — mirrors the other
 // monitors' `fieldToggleChanged:`. Each checkbox's `identifier` carries the NSUserDefaults
@@ -1030,9 +1048,18 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 260)];
+	// AppDelegate sizes this view once via -setFrameSize: to match the prefs window's
+	// container, then never again — without an autoresizing mask this view (and its
+	// visible tab box) stays whatever size it was created at even if the user later
+	// resizes the Preferences window. Track the container's size going forward.
+	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
 	// The nib lives in THIS plugin's bundle, not the main app bundle. Its top-level view
 	// (the ignore-list picker: a table + add/remove buttons) is assigned to `prefsView` via
-	// the IBOutlet, which this method then wraps with the appended section below.
+	// the IBOutlet, which this method then wraps with the appended section below. `prefsView`
+	// is only a scratch var at this point — the real return value (the tab view) is assigned
+	// to it at the very end of this method.
 	[[NSBundle bundleForClass:[self class]] loadNibNamed:@"VolumeMonitorPrefs" owner:self topLevelObjects:nil];
 	NSView *xibView = prefsView;
 
@@ -1110,7 +1137,70 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 	scroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 	scroll.documentView = combined;
 
-	prefsView = scroll;
+	NSTabViewItem *generalItem = [[NSTabViewItem alloc] initWithIdentifier:@"general"];
+	generalItem.label = NSLocalizedString(@"General", @"");
+	generalItem.view = scroll;
+	[tabs addTabViewItem:generalItem];
+
+	// --- Tab: Icons (per-event icon overrides) ---
+	// Coverage pass (28-jul-2026): the runtime icon-selection logic (HWGDeviceIconNameForCategory
+	// / HWGDeviceIconNameForCategoryVariant above, plus the unconditional generic mount/eject
+	// icons in +mountIconData/+ejectIconImage) can actually resolve to more asset names than
+	// the previous iconSpecs list exposed — added the generic mount/eject icons and the
+	// "-Unmounted"/"-Critical" variants that genuinely exist in Assets.xcassets for
+	// ExternalDisk/SDCard/USBDrive (Optical and NAS have no such variant assets, so none are
+	// added for those — HWGDeviceIconNameForCategoryVariant returns nil for those combinations
+	// and the generic fallback is used, matching this list's "only reachable, real assets"
+	// rule).
+	CGFloat iconsWidth = tabs.bounds.size.width - 2 * pad;
+
+	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
+		@[@"Module Icon (Sidebar)", @"HWGPrefsDrivesVolumes-Module"],
+		@[@"Optical", @"Device-Optical"],
+		@[@"NAS", @"Device-NAS"],
+		@[@"External Disk", @"Device-ExternalDisk"],
+		@[@"External Disk (Unmounted)", @"Device-ExternalDisk-Unmounted"],
+		@[@"External Disk (Critical)", @"Device-ExternalDisk-Critical"],
+		@[@"SD Card", @"Device-SDCard"],
+		@[@"SD Card (Unmounted)", @"Device-SDCard-Unmounted"],
+		@[@"SD Card (Critical)", @"Device-SDCard-Critical"],
+		@[@"USB Drive", @"Device-USBDrive"],
+		@[@"USB Drive (Unmounted)", @"Device-USBDrive-Unmounted"],
+		@[@"USB Drive (Critical)", @"Device-USBDrive-Critical"],
+		@[@"Critical (generic)", @"Device-Critical"],
+		@[@"Mounted (generic)", @"DisksVolumes-Mounted"],
+		@[@"Unmounted (generic)", @"DisksVolumes-Eject"],
+	]];
+	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
+	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
+	CGFloat iconPickerH = iconPicker.fittingSize.height;
+
+	NSTextField *iconsHeader = [NSTextField labelWithString:NSLocalizedString(@"Notification icons", @"")];
+	iconsHeader.font = [NSFont boldSystemFontOfSize:12];
+	iconsHeader.textColor = [NSColor secondaryLabelColor];
+	iconsHeader.translatesAutoresizingMaskIntoConstraints = YES;
+	CGFloat iconsHeaderH = iconsHeader.fittingSize.height;
+	CGFloat iconsGap = 12;
+
+	NSView *iconsTab = [[HWGFlippedContentView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, iconsHeaderH + iconsGap + iconPickerH + 2 * pad)];
+	iconsHeader.frame = NSMakeRect(pad, pad, iconsWidth, iconsHeaderH);
+	[iconsTab addSubview:iconsHeader];
+	iconPicker.frame = NSMakeRect(pad, pad + iconsHeaderH + iconsGap, iconsWidth, iconPickerH);
+	[iconsTab addSubview:iconPicker];
+
+	NSScrollView *iconsScroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, 480)];
+	iconsScroll.hasVerticalScroller = YES;
+	iconsScroll.autohidesScrollers = YES;
+	iconsScroll.drawsBackground = NO;
+	iconsScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	iconsScroll.documentView = iconsTab;
+
+	NSTabViewItem *iconsItem = [[NSTabViewItem alloc] initWithIdentifier:@"icons"];
+	iconsItem.label = NSLocalizedString(@"Icons", @"");
+	iconsItem.view = iconsScroll;
+	[tabs addTabViewItem:iconsItem];
+
+	prefsView = tabs;
 	return prefsView;
 }
 
