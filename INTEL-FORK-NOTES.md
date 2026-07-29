@@ -110,6 +110,14 @@ so a genuinely new rebuild can still leave one orphaned Login Items entry behind
 user to clean up manually. The auto-heal above only guarantees the toggle stays honest and
 functional across that; it doesn't do the cleanup.
 
+**⚠️ TODO — open problem, not just a known quirk to live with:** installing a new version
+**without first uninstalling the previous one** currently requires the user to manually
+remove the duplicate Login Items entry every time (see recovery procedure below). This is
+a real gap in the update experience, not something to just document and accept — it should
+get fixed by actually setting up a stable signing identity (the free Xcode Personal Team
+option above is the quickest path, since it costs nothing), so a future update stops
+needing this manual step at all. Track this as pending work for a future session.
+
 **Confirmed manual recovery procedure (2026-07-29), needed once per NEW rebuild that
 replaces the running app:**
 
