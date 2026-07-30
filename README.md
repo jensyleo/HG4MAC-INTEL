@@ -123,6 +123,13 @@ open /Applications/HG4MAC.app
 
 ## Known limitations
 
+- **(Intel fork only) Updating without uninstalling the previous version can leave a
+  duplicate entry in System Settings → Login Items & Extensions.** Left unfixed
+  intentionally for now — the root cause, a manual recovery procedure, and three concrete
+  ways to actually fix it are documented in
+  [`INTEL-FORK-NOTES.md`](INTEL-FORK-NOTES.md#known-limitation-start-at-login-and-duplicate-login-items-entries)
+  for anyone who wants to pick it up.
+
 - **Ethernet duplex reporting can mismatch a switch's own view.** The app reads the link
   speed/duplex via the standard `SIOCGIFMEDIA` ioctl — the same data source `ifconfig`
   uses. On at least one tested setup (a managed/enterprise switch port forced to

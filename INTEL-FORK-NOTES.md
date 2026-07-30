@@ -113,10 +113,51 @@ functional across that; it doesn't do the cleanup.
 **⚠️ TODO — open problem, not just a known quirk to live with:** installing a new version
 **without first uninstalling the previous one** currently requires the user to manually
 remove the duplicate Login Items entry every time (see recovery procedure below). This is
-a real gap in the update experience, not something to just document and accept — it should
-get fixed by actually setting up a stable signing identity (the free Xcode Personal Team
-option above is the quickest path, since it costs nothing), so a future update stops
-needing this manual step at all. Track this as pending work for a future session.
+a real gap in the update experience — left unfixed intentionally for now (2026-07-29), but
+tracked here for whoever picks this up next.
+
+**Root cause, found by digging through this fork's own history (not a guess):** this app
+used to handle "Start at Login" completely differently, and it never duplicated. Commit
+`f0d865e` ("Modernize HardwareGrowler into HG4MAC for macOS Tahoe / Apple Silicon") replaced:
+
+```objc
+SMLoginItemSetEnabled(CFSTR("com.growl.HardwareGrowlerLauncher"), enabled)
+```
+
+with `SMAppService.mainAppService`. The old API identifies the login item by a **constant
+bundle identifier** (`com.growl.HardwareGrowlerLauncher`, a tiny helper app embedded at
+`Contents/Library/LoginItems/` — the `HardwareGrowlerLauncher` Xcode target still exists in
+this project, just unused for this purpose now) that just launches the main app. Since that
+identity never depends on the main app's binary at all, rebuilding it was never able to
+duplicate anything. `SMAppService.mainAppService` registers the main app directly — no
+helper — which is simpler, but without a stable signing identity it falls back to
+identifying the login item by **code hash (cdhash)**, which is exactly what changes on
+every ad-hoc rebuild. That's the actual mechanism behind the duplicate.
+
+**Three ways to actually fix this** (not yet decided/implemented as of 2026-07-29):
+
+- **(A) Revert to `SMLoginItemSetEnabled` + the launcher helper** — literally the code this
+  fork used to have (see `f0d865e` above for the exact diff to reverse), confirmed to never
+  duplicate regardless of signing. Deprecated since macOS 13
+  (`__OSX_DEPRECATED(10.6, 13.0, "Please use SMAppService instead")`, confirmed present and
+  functional in the current SDK — Tahoe 26 — as of this writing), so this carries some risk
+  Apple removes it outright in some future macOS, with no announced date. Lowest effort of
+  the three.
+- **(B) Stable signing identity** (free Xcode Personal Team or paid Developer ID, both
+  described above) — keeps the modern `SMAppService` API Apple actually recommends, no
+  deprecation risk. Requires signing in with an Apple ID in Xcode once, and never changing
+  signing identity across future builds.
+- **(C) Manual `LaunchAgent` plist** (`~/Library/LaunchAgents/com.jensyleo.hg4mac.plist`,
+  `launchctl bootstrap`/`launchctl load`, `Label` as the stable identity) — this app's own
+  code already has a near-identical fallback for pre-macOS-13 in the same `f0d865e` diff, so
+  the pattern is already proven to exist here. Doesn't need a helper app or code signing at
+  all, but may not surface as a user-manageable entry in System Settings → Login Items &
+  Extensions the way `SMAppService`-registered items do on modern macOS — needs live
+  verification before relying on it.
+
+(A) is the closest match to "this used to just work" — it's a revert, not new design — but
+carries the deprecation risk. (B) is the Apple-recommended long-term answer. Pick based on
+how much you trust "deprecated but present in Tahoe" to keep holding.
 
 **Confirmed manual recovery procedure (2026-07-29), needed once per NEW rebuild that
 replaces the running app:**
