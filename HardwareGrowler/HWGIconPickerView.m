@@ -73,6 +73,11 @@
 @end
 @implementation HWGIconPickerRow @end
 
+static BOOL HWGIconPickerNotifyBoolForKey(NSString *key, BOOL def) {
+	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
+	return stored ? [stored boolValue] : def;
+}
+
 @interface HWGIconPickerView ()
 @property (nonatomic, strong) NSArray<HWGIconPickerRow *> *rows;
 @property (nonatomic, strong) NSPopover *activeSystemIconPopover;
@@ -80,7 +85,7 @@
 
 @implementation HWGIconPickerView
 
-- (instancetype)initWithIconSpecs:(NSArray<NSArray<NSString *> *> *)iconSpecs {
+- (instancetype)initWithIconSpecs:(NSArray<NSArray *> *)iconSpecs {
 	self = [super initWithFrame:NSZeroRect];
 	if (self) {
 		self.translatesAutoresizingMaskIntoConstraints = NO;
@@ -89,7 +94,16 @@
 	return self;
 }
 
-- (void)buildWithIconSpecs:(NSArray<NSArray<NSString *> *> *)iconSpecs {
+// Handler for every row's "Notify?" checkbox — `identifier` carries the NSUserDefaults key
+// (set per-row in `buildWithIconSpecs:` below), same pattern each monitor's own General-tab
+// checkboxes already use.
+- (void)notifyToggleChanged:(NSButton *)sender {
+	NSString *key = sender.identifier;
+	if (!key) return;
+	[[NSUserDefaults standardUserDefaults] setBool:(sender.state == NSControlStateValueOn) forKey:key];
+}
+
+- (void)buildWithIconSpecs:(NSArray<NSArray *> *)iconSpecs {
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Icons", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
 	header.textColor = [NSColor secondaryLabelColor];
@@ -106,13 +120,22 @@
 	// keeps every row's button columns aligned (they all still share this one width) while
 	// guaranteeing no label ever needs the "…"/tooltip fallback.
 	CGFloat nameColumnWidth = 150;
-	for (NSArray<NSString *> *spec in iconSpecs) {
-		NSDictionary *attrs = @{NSFontAttributeName: [NSFont systemFontOfSize:[NSFont systemFontSize]]};
-		CGFloat needed = ceil([spec[0] sizeWithAttributes:attrs].width) + 4; // small safety margin
+	for (NSArray *spec in iconSpecs) {
+		// Measure with an actual NSTextField (not NSString sizeWithAttributes:), then read its
+		// real -intrinsicContentSize — the two didn't agree closely enough in practice ("Other
+		// Interface Connected/Disconnected" in Network Monitor still got truncated with "…"
+		// even after bumping the NSString-based safety margin from +4 to +16). Building the
+		// same kind of label this row will actually use and asking IT for its size sidesteps
+		// whatever gap causes the mismatch — plus a small +6 margin for a bit of breathing room.
+		NSTextField *measuringField = [NSTextField labelWithString:spec[0]];
+		// +24 margin — generous on purpose. A real Retina display can measure/render text
+		// slightly wider than this headless-style measurement predicts; a few points of unused
+		// trailing space in a name column is invisible, but truncating the longest label isn't.
+		CGFloat needed = ceil(measuringField.intrinsicContentSize.width) + 24;
 		if (needed > nameColumnWidth) nameColumnWidth = needed;
 	}
 
-	for (NSArray<NSString *> *spec in iconSpecs) {
+	for (NSArray *spec in iconSpecs) {
 		NSString *label = spec[0];
 		NSString *defaultName = spec[1];
 
@@ -145,6 +168,24 @@
 		resetButton.translatesAutoresizingMaskIntoConstraints = NO;
 		resetButton.identifier = defaultName;
 		resetButton.enabled = [[HWGIconOverrideStore sharedStore] hasOverrideForDefaultName:defaultName];
+
+		// "Notify?" column — always created so every row has the exact same subview/constraint
+		// structure (no per-row branching that could make Auto Layout treat rows differently);
+		// simply hidden for rows whose spec has no 3rd element (Module Icon/Connected/
+		// Disconnected — not a distinct notification event).
+		NSString *notifyKey = (spec.count > 2) ? spec[2] : nil;
+		BOOL notifyDefaultOn = (spec.count > 3) ? [spec[3] boolValue] : YES;
+		NSButton *notifyBox = [NSButton checkboxWithTitle:@"" target:self action:@selector(notifyToggleChanged:)];
+		notifyBox.translatesAutoresizingMaskIntoConstraints = NO;
+		if (notifyKey) {
+			notifyBox.identifier = notifyKey;
+			notifyBox.state = HWGIconPickerNotifyBoolForKey(notifyKey, notifyDefaultOn) ? NSControlStateValueOn : NSControlStateValueOff;
+			notifyBox.toolTip = NSLocalizedString(@"Notify for this event", @"");
+		} else {
+			notifyBox.hidden = YES;
+			notifyBox.enabled = NO;
+		}
+		[self addSubview:notifyBox];
 
 		HWGIconPickerRow *row = [HWGIconPickerRow new];
 		row.defaultName = defaultName;
@@ -193,7 +234,12 @@
 			[resetButton.centerYAnchor constraintEqualToAnchor:imageView.centerYAnchor],
 			[resetButton.leadingAnchor constraintEqualToAnchor:urlButton.trailingAnchor constant:8],
 			[resetButton.widthAnchor constraintEqualToAnchor:changeButton.widthAnchor],
-			[resetButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.trailingAnchor],
+		]];
+
+		[NSLayoutConstraint activateConstraints:@[
+			[notifyBox.centerYAnchor constraintEqualToAnchor:imageView.centerYAnchor],
+			[notifyBox.leadingAnchor constraintEqualToAnchor:resetButton.trailingAnchor constant:16],
+			[notifyBox.trailingAnchor constraintLessThanOrEqualToAnchor:self.trailingAnchor],
 		]];
 
 		previous = imageView;

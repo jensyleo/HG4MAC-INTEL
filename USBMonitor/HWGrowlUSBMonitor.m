@@ -34,6 +34,17 @@ static BOOL HWGUSBBoolForKey(NSString *key, BOOL def) {
 	return stored ? [stored boolValue] : def;
 }
 
+// Per-device-type "Notify" toggle (Icons tab) — lets the user silence connect
+// notifications for a specific device type without touching its icon. Keyed by
+// the same identifier used for each `usbIconNameForClassCode:` case; unmapped
+// classes share one catch-all key since they have no dedicated icon/row either.
+// Disconnect always notifies regardless (bDeviceClass isn't reliably readable
+// by then — see the note on `usbDeviceID:name:added:...` below).
+#define HWG_USB_NOTIFY_KEY_PREFIX @"HWGUSBNotifyType_"
+// Disconnect has no class code (see note above), so it gets one unconditional toggle
+// rather than a per-type key.
+#define HWG_USB_NOTIFY_DISCONNECT_KEY @"HWGUSBNotifyDisconnect"
+
 @interface HWGrowlUSBMonitor ()
 
 @property (nonatomic, weak) id<HWGrowlPluginControllerProtocol> delegate;
@@ -239,17 +250,41 @@ static const uint8_t kHWGUSBHubDeviceClass = 9;
 -(NSString *)usbIconNameForClassCode:(uint8_t)classCode isHub:(BOOL)isHub {
 	if (isHub) return @"USB-TypeHub";
 	switch (classCode) {
-		case 0x01: return @"USB-TypeAudio";       // Audio
-		case 0x03: return @"USB-TypeHID";         // HID (Keyboard/Mouse) — HID doesn't
-		                                           // distinguish the two without reading
-		                                           // the Report Descriptor.
-		case 0x07: return @"USB-TypePrinter";      // Printer
-		case 0x06: return @"USB-TypeScanner";       // Image (most standalone scanners/MFPs
-		                                           // without a printer function report this)
-		case 0x0B: return @"USB-TypeSmartCard";    // Smart Card
-		case 0x0E: return @"USB-TypeWebcam";       // Video
-		case 0xE0: return @"USB-TypeWireless";     // Wireless Controller
+		case 0x01: return @"USB-TypeAudio";           // Audio
+		case 0x03: return @"USB-TypeHID";             // HID (Keyboard/Mouse) — HID doesn't
+		                                               // distinguish the two without reading
+		                                               // the Report Descriptor.
+		case 0x06: return @"USB-TypeScanner";         // Image (most standalone scanners/MFPs
+		                                               // without a printer function report this)
+		case 0x07: return @"USB-TypePrinter";         // Printer
+		case 0x0B: return @"USB-TypeSmartCard";       // Smart Card
+		case 0x0E: return @"USB-TypeWebcam";          // Video
+		case 0x0F: return @"USB-TypeHealthcare";      // Personal Healthcare
+		case 0x10: return @"USB-TypeAudioVideo";      // Audio/Video
+		case 0x12: return @"USB-TypeTypeCBridge";     // USB Type-C Bridge
+		case 0xE0: return @"USB-TypeWireless";        // Wireless Controller
 		default:   return nil;
+	}
+}
+
+// Same classification as above, but returns the stable identifier used to build
+// this type's "Notify" defaults key — kept as a separate lookup (rather than
+// deriving it from the icon name) so the notify-toggle identifiers never change
+// if an icon asset is ever renamed.
+-(NSString *)usbTypeIdentifierForClassCode:(uint8_t)classCode isHub:(BOOL)isHub {
+	if (isHub) return @"Hub";
+	switch (classCode) {
+		case 0x01: return @"Audio";
+		case 0x03: return @"HID";
+		case 0x06: return @"Scanner";
+		case 0x07: return @"Printer";
+		case 0x0B: return @"SmartCard";
+		case 0x0E: return @"Webcam";
+		case 0x0F: return @"Healthcare";
+		case 0x10: return @"AudioVideo";
+		case 0x12: return @"TypeCBridge";
+		case 0xE0: return @"Wireless";
+		default:   return @"Other";
 	}
 }
 
@@ -363,8 +398,12 @@ static const uint8_t kHWGUSBHubDeviceClass = 9;
 				NSString *iconName = [self usbIconNameForClassCode:classCode isHub:isHub];
 				NSString *extraInfo = [self usbExtraInfoForDevice:thisObject];
 
-				// NSLog(@"USB Device Attached: %@" , deviceName);
-				[self usbDeviceID:deviceID name:deviceName added:YES isHub:isHub iconName:iconName extraInfo:extraInfo];
+				NSString *typeID = [self usbTypeIdentifierForClassCode:classCode isHub:isHub];
+				NSString *notifyKey = [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:typeID];
+				if (HWGUSBBoolForKey(notifyKey, YES)) {
+					// NSLog(@"USB Device Attached: %@" , deviceName);
+					[self usbDeviceID:deviceID name:deviceName added:YES isHub:isHub iconName:iconName extraInfo:extraInfo];
+				}
 			}
 		}
 
@@ -406,7 +445,9 @@ static void usbDeviceAdded(void *refCon, io_iterator_t iterator) {
 			// NSLog(@"USB Device Detached: %@" , deviceName);
 			// No extraInfo or device-type icon on removal: registry properties are
 			// frequently unreadable from a terminating entry by the time this callback fires.
-			[self usbDeviceID:deviceID name:deviceName added:NO isHub:isHub iconName:nil extraInfo:nil];
+			if (HWGUSBBoolForKey(HWG_USB_NOTIFY_DISCONNECT_KEY, YES)) {
+				[self usbDeviceID:deviceID name:deviceName added:NO isHub:isHub iconName:nil extraInfo:nil];
+			}
 		}
 		
 		IOObjectRelease(thisObject);
@@ -511,16 +552,19 @@ static void usbDeviceRemoved(void *refCon, io_iterator_t iterator) {
 
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"HWGPrefsUSB-Module"],
-		@[@"Hub", @"USB-TypeHub"],
-		@[@"Keyboard/Mouse", @"USB-TypeHID"],
-		@[@"Webcam", @"USB-TypeWebcam"],
-		@[@"Scanner", @"USB-TypeScanner"],
-		@[@"Printer", @"USB-TypePrinter"],
-		@[@"Smart Card", @"USB-TypeSmartCard"],
-		@[@"Audio", @"USB-TypeAudio"],
-		@[@"Wireless", @"USB-TypeWireless"],
-		@[@"Connected (generic)", @"USB-On"],
-		@[@"Disconnected", @"USB-Off"],
+		@[@"Hub", @"USB-TypeHub", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Hub"]],
+		@[@"Keyboard/Mouse", @"USB-TypeHID", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"HID"]],
+		@[@"Webcam", @"USB-TypeWebcam", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Webcam"]],
+		@[@"Scanner", @"USB-TypeScanner", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Scanner"]],
+		@[@"Printer", @"USB-TypePrinter", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Printer"]],
+		@[@"Smart Card", @"USB-TypeSmartCard", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"SmartCard"]],
+		@[@"Audio", @"USB-TypeAudio", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Audio"]],
+		@[@"Healthcare", @"USB-TypeHealthcare", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Healthcare"]],
+		@[@"Audio/Video", @"USB-TypeAudioVideo", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"AudioVideo"]],
+		@[@"Type-C Bridge", @"USB-TypeTypeCBridge", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"TypeCBridge"]],
+		@[@"Wireless", @"USB-TypeWireless", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Wireless"]],
+		@[@"Connected (generic)", @"USB-On", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Other"]],
+		@[@"Disconnected", @"USB-Off", HWG_USB_NOTIFY_DISCONNECT_KEY],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

@@ -25,6 +25,10 @@
 #define HWG_CAMERA_SHOW_TRANSPORT_KEY   @"HWGCameraShowTransport"
 #define HWG_CAMERA_NOTIFY_CONNECT_KEY   @"HWGCameraNotifyConnect"
 #define HWG_CAMERA_NOTIFY_IN_USE_KEY    @"HWGCameraNotifyInUse"
+// Per-row refinement on top of HWG_CAMERA_NOTIFY_IN_USE_KEY above (the master "In Use" toggle):
+// lets the user silence just one direction (e.g. keep "started" but not "stopped").
+#define HWG_CAMERA_NOTIFY_INUSE_ROW_KEY @"HWGCameraNotifyInUseRow"
+#define HWG_CAMERA_NOTIFY_IDLE_ROW_KEY  @"HWGCameraNotifyIdleRow"
 
 static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
@@ -272,6 +276,8 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 
 		if (nowRunning) [runningCameraUIDs addObject:uid]; else [runningCameraUIDs removeObject:uid];
 		if (!shouldNotify || !wantsInUse) continue;
+		NSString *rowKey = nowRunning ? HWG_CAMERA_NOTIFY_INUSE_ROW_KEY : HWG_CAMERA_NOTIFY_IDLE_ROW_KEY;
+		if (!HWGCameraBoolForKey(rowKey, YES)) continue;
 
 		AVCaptureDevice *device = [AVCaptureDevice deviceWithUniqueID:uid];
 		NSString *name = device.localizedName ?: NSLocalizedString(@"Camera", @"");
@@ -372,8 +378,8 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 	CGFloat iconsWidth = 560 - 2 * iconsPad;
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"CameraMonitor-Icon-Module"],
-		@[@"In Use", @"CameraMonitor-Icon-InUse"],
-		@[@"Idle", @"CameraMonitor-Icon"],
+		@[@"In Use", @"CameraMonitor-Icon-InUse", HWG_CAMERA_NOTIFY_INUSE_ROW_KEY],
+		@[@"Idle", @"CameraMonitor-Icon", HWG_CAMERA_NOTIFY_IDLE_ROW_KEY],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

@@ -41,6 +41,7 @@
 // F34 follow-up (23-jul-2026, user request): 3 additions, all OFF by default —
 // #1 printer error/warning state, #2 default-printer-changed, #3 extra info fields on Connected.
 #define HWG_PRINTER_NOTIFY_ERROR_KEY   @"HWGPrinterNotifyErrorState"
+#define HWG_PRINTER_NOTIFY_CONNECT_KEY @"HWGPrinterNotifyConnectRow"
 #define HWG_PRINTER_NOTIFY_DEFAULT_KEY @"HWGPrinterNotifyDefaultChanged"
 #define HWG_PRINTER_SHOW_LOCATION_KEY   @"HWGPrinterShowLocation"
 #define HWG_PRINTER_SHOW_MAKEMODEL_KEY  @"HWGPrinterShowMakeModel"
@@ -221,13 +222,15 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 				[lines addObject:[NSString stringWithFormat:NSLocalizedString(@"Connection: %@", @""), info.connectionType]];
 			}
 
-			[delegate notifyWithName:@"PrinterConnected"
-									 title:NSLocalizedString(@"Printer Connected", @"")
-							 description:[lines componentsJoinedByString:@"\n"]
-									  icon:onIcon
-					  identifierString:[NSString stringWithFormat:@"HWGrowlPrinter-%@", name]
-						  contextString:nil
-									plugin:self];
+			if (HWGPrinterBoolForKey(HWG_PRINTER_NOTIFY_CONNECT_KEY, YES)) {
+				[delegate notifyWithName:@"PrinterConnected"
+										 title:NSLocalizedString(@"Printer Connected", @"")
+								 description:[lines componentsJoinedByString:@"\n"]
+										  icon:onIcon
+						  identifierString:[NSString stringWithFormat:@"HWGrowlPrinter-%@", name]
+							  contextString:nil
+										plugin:self];
+			}
 		}
 		for (NSString *name in removed) {
 			[delegate notifyWithName:@"PrinterDisconnected"
@@ -577,8 +580,8 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 	CGFloat iconsWidth = 560 - 2 * iconsPad;
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"PrinterMonitor-ModuleIcon"],
-		@[@"Connected", @"PrinterMonitor-Icon-Connected"],
-		@[@"Needs Attention", @"PrinterMonitor-Icon-Disconnected"],
+		@[@"Connected", @"PrinterMonitor-Icon-Connected", HWG_PRINTER_NOTIFY_CONNECT_KEY],
+		@[@"Needs Attention", @"PrinterMonitor-Icon-Disconnected", HWG_PRINTER_NOTIFY_ERROR_KEY, @NO],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

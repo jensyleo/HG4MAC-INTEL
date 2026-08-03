@@ -19,6 +19,9 @@
 #import "HWGIconPickerView.h"
 
 #define HWG_SCANNER_NOTIFY_KEY @"HWGScannerNotifyEnabled"
+// Independent from HWG_SCANNER_NOTIFY_KEY above (which also controls whether browsing runs at
+// all) — this only silences the notification itself while detection/state-tracking continues.
+#define HWG_SCANNER_NOTIFY_FOUNDLOST_KEY @"HWGScannerNotifyFoundLost"
 
 static BOOL HWGScannerBoolForKey(NSString *key, BOOL def) {
 	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
@@ -101,6 +104,7 @@ static BOOL HWGScannerBoolForKey(NSString *key, BOOL def) {
 	NSString *key = [self keyForService:service];
 	self.knownServices[key] = service;
 
+	if (!HWGScannerBoolForKey(HWG_SCANNER_NOTIFY_FOUNDLOST_KEY, YES)) return;
 	NSData *iconData = [[HWGrowlScannerMonitor scannerIcon] TIFFRepresentation];
 	[delegate notifyWithName:@"ScannerFound"
 							 title:NSLocalizedString(@"Network Scanner Found", @"")
@@ -115,6 +119,7 @@ static BOOL HWGScannerBoolForKey(NSString *key, BOOL def) {
 	NSString *key = [self keyForService:service];
 	[self.knownServices removeObjectForKey:key];
 
+	if (!HWGScannerBoolForKey(HWG_SCANNER_NOTIFY_FOUNDLOST_KEY, YES)) return;
 	NSData *iconData = [[HWGrowlScannerMonitor scannerIcon] TIFFRepresentation];
 	[delegate notifyWithName:@"ScannerLost"
 							 title:NSLocalizedString(@"Network Scanner Lost", @"")
@@ -213,7 +218,7 @@ static BOOL HWGScannerBoolForKey(NSString *key, BOOL def) {
 	CGFloat iconsWidth = 560 - 2 * iconsPad;
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"USB-TypeScanner"],
-		@[@"Scanner Found/Lost", @"USB-TypeScanner"],
+		@[@"Scanner Found/Lost", @"USB-TypeScanner", HWG_SCANNER_NOTIFY_FOUNDLOST_KEY],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

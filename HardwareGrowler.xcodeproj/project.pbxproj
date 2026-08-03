@@ -55,6 +55,7 @@
 		AA000001000000000000AA01 /* GrowlApplicationBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000AA00 /* GrowlApplicationBridge.m */; settings = {COMPILER_FLAGS = "-fobjc-arc -fobjc-exceptions"; }; };
 		AA000002000000000000AA01 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000002000000000000AA00 /* UserNotifications.framework */; };
 		AA000003000000000000AA01 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000003000000000000AA00 /* CoreBluetooth.framework */; };
+		AA000004000000000000AA01 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000004000000000000AA00 /* UniformTypeIdentifiers.framework */; };
 		AEEBCE53BBD592F7A0CB9B6A /* HWGrowlCameraMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 45F058C4C7F8BF201489D77E /* HWGrowlCameraMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		AF112BFAC1D5162DBF3EE2C8 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		B1AC66D5EF7508BCDEB1C532 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
@@ -430,6 +431,7 @@
 		AA000001000000000000AA00 /* GrowlApplicationBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GrowlApplicationBridge.m; path = GrowlStub/GrowlApplicationBridge.m; sourceTree = SOURCE_ROOT; };
 		AA000002000000000000AA00 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
 		AA000003000000000000AA00 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
+		AA000004000000000000AA00 /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
 		BC3530AE155C1402005D2EA2 /* Common.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Common.xcconfig; path = xcconfig/Common.xcconfig; sourceTree = "<group>"; };
 		BC3530AF155C1402005D2EA2 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = xcconfig/Debug.xcconfig; sourceTree = "<group>"; };
 		BC3530B0155C1402005D2EA2 /* Localization.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Localization.xcconfig; path = xcconfig/Localization.xcconfig; sourceTree = "<group>"; };
@@ -634,6 +636,7 @@
 				BCB8070815517EE90088C69A /* ServiceManagement.framework in Frameworks */,
 				AA000002000000000000AA01 /* UserNotifications.framework in Frameworks */,
 				AA000003000000000000AA01 /* CoreBluetooth.framework in Frameworks */,
+				AA000004000000000000AA01 /* UniformTypeIdentifiers.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2469,7 +2472,6 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "BluetoothMonitor/BluetoothMonitor-Prefix.pch";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "BluetoothMonitor/BluetoothMonitor-Info.plist";
 				INFOPLIST_PREFIX_HEADER = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
@@ -2487,7 +2489,6 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "BluetoothMonitor/BluetoothMonitor-Prefix.pch";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "BluetoothMonitor/BluetoothMonitor-Info.plist";
 				INFOPLIST_PREFIX_HEADER = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
@@ -2505,7 +2506,6 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "BluetoothMonitor/BluetoothMonitor-Prefix.pch";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "BluetoothMonitor/BluetoothMonitor-Info.plist";
 				INFOPLIST_PREFIX_HEADER = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";

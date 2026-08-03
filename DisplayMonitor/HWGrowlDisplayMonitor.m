@@ -39,6 +39,9 @@
 // CGDisplayIsInMirrorSet instead of CGDisplayCopyDisplayMode.
 #define HWG_DISPLAY_NOTIFY_ROLE_CHANGE_KEY @"HWGDisplayNotifyRoleChange"
 
+#define HWG_DISPLAY_NOTIFY_CONNECT_KEY    @"HWGDisplayNotifyConnect"
+#define HWG_DISPLAY_NOTIFY_DISCONNECT_KEY @"HWGDisplayNotifyDisconnect"
+
 // EXPERIMENTAL, off by default — see the long comment on -pollForPhysicalVideoLink and the
 // README "Known limitations" entry before touching this. Not a supported feature; a
 // best-effort heuristic that scrapes free-form kernel log text with no stability contract.
@@ -368,10 +371,12 @@ static void HWGDisplayReconfigurationCallback(CGDirectDisplayID display, CGDispl
 	if (wantsResolution && (oldW != newW || oldH != newH)) {
 		[lines addObject:[NSString stringWithFormat:NSLocalizedString(@"Resolution:\t%zu×%zu → %zu×%zu", @""), oldW, oldH, newW, newH]];
 	}
-	if (wantsRefresh && oldHz != newHz) {
+	// Compare at the precision actually shown (nearest whole Hz/degree) rather than the raw
+	// double — what the user reads is what should decide whether this counts as "changed".
+	if (wantsRefresh && llround(oldHz) != llround(newHz)) {
 		[lines addObject:[NSString stringWithFormat:NSLocalizedString(@"Refresh rate:\t%.0f Hz → %.0f Hz", @""), oldHz, newHz]];
 	}
-	if (wantsRotation && oldRot != newRot) {
+	if (wantsRotation && llround(oldRot) != llround(newRot)) {
 		[lines addObject:[NSString stringWithFormat:NSLocalizedString(@"Rotation:\t%.0f° → %.0f°", @""), oldRot, newRot]];
 	}
 	return [lines count] ? [lines componentsJoinedByString:@"\n"] : nil;
@@ -525,6 +530,9 @@ static void HWGDisplayReconfigurationCallback(CGDirectDisplayID display, CGDispl
 }
 
 -(void)notifyConnected:(BOOL)connected displayID:(NSNumber *)displayID description:(NSString *)description {
+	NSString *notifyKey = connected ? HWG_DISPLAY_NOTIFY_CONNECT_KEY : HWG_DISPLAY_NOTIFY_DISCONNECT_KEY;
+	if (!HWGDisplayBoolForKey(notifyKey, YES)) return;
+
 	NSString *title = connected ? NSLocalizedString(@"Display Connected", @"") : NSLocalizedString(@"Display Disconnected", @"");
 	NSString *identifierString = [NSString stringWithFormat:@"HWGrowlDisplay-%@", displayID];
 
@@ -717,8 +725,8 @@ static void HWGDisplayReconfigurationCallback(CGDirectDisplayID display, CGDispl
 	CGFloat iconsWidth = 560 - 2 * iconsPad;
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"HWGPrefsDisplay-Module"],
-		@[@"Display Connected", @"Display-On"],
-		@[@"Display Disconnected", @"Display-Off"],
+		@[@"Display Connected", @"Display-On", HWG_DISPLAY_NOTIFY_CONNECT_KEY],
+		@[@"Display Disconnected", @"Display-Off", HWG_DISPLAY_NOTIFY_DISCONNECT_KEY],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

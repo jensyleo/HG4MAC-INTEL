@@ -7,6 +7,7 @@
 //
 
 // compile with ARC: -fobjc-arc
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "AppDelegate.h"
 #import "GrowlOnSwitch.h"
 #import "HWGrowlPluginController.h"
@@ -835,7 +836,7 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 	NSSavePanel *panel = [NSSavePanel savePanel];
 	panel.title = NSLocalizedString(@"Export Profile", @"");
 	panel.nameFieldStringValue = @"HG4MAC profile.zip";
-	panel.allowedFileTypes = @[@"zip"];
+	panel.allowedContentTypes = @[UTTypeZIP];
 
 	[panel beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result) {
 		if (result != NSModalResponseOK || !panel.URL) return;
@@ -875,7 +876,7 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 	panel.allowsMultipleSelection = NO;
 	panel.canChooseDirectories = NO;
 	panel.canChooseFiles = YES;
-	panel.allowedFileTypes = @[@"zip"];
+	panel.allowedContentTypes = @[UTTypeZIP];
 
 	[panel beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result) {
 		if (result != NSModalResponseOK || !panel.URL) return;

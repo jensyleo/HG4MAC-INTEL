@@ -50,6 +50,12 @@
 // of an ALREADY-firing notification.
 #define HWG_POWER_LOWPOWER_NOTIFY_KEY @"HWGPowerNotifyLowPowerMode"
 
+// Per-row "Notify?" checkbox (Icons tab) — one per battery-level/plugged icon. All battery
+// percentages funnel through ONE shared PowerChange/PowerWarning notify call (see
+// -powerSourceChanged:), so gating happens by looking up the row key for whichever icon
+// that call is ABOUT to use (imageName is already exactly the row's defaultIconName).
+#define HWG_POWER_NOTIFY_ROW_PREFIX @"HWGPowerNotifyRow_"
+
 static BOOL HWGPowerBoolForKey(NSString *key, BOOL def) {
 	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
 	return stored ? [stored boolValue] : def;
@@ -562,6 +568,7 @@ static BOOL HWGCopyBatteryHealth(NSInteger *outCycleCount, NSInteger *outHealthP
 				@autoreleasepool {
 					NSString *desc = [self chargingDescriptionForPowerSources:powerSourceDescriptions
 															 currentSource:currentSource];
+					if (HWGPowerBoolForKey([HWG_POWER_NOTIFY_ROW_PREFIX stringByAppendingString:@"Power-Plugged"], YES)) {
 					NSData *fullIcon = [HWGResolveIconNamed(@"Power-Plugged") TIFFRepresentation];
 					// Distinct identifier so the dedup key (name+identifier+description) doesn't
 					// collide with the generic "On AC Power" notice (same description).
@@ -572,6 +579,7 @@ static BOOL HWGCopyBatteryHealth(NSInteger *outCycleCount, NSInteger *outHealthP
 							identifierString:@"PowerFullyCharged"
 							   contextString:nil
 									  plugin:self];
+					}
 				}
 			}
 		} else if(!isFull){
@@ -612,10 +620,11 @@ static BOOL HWGCopyBatteryHealth(NSInteger *outCycleCount, NSInteger *outHealthP
 						
 			NSString *imageName = [self powerIconNameForSource:currentSource percentage:percentage];
 
-			@autoreleasepool
-			{
+			if (HWGPowerBoolForKey([HWG_POWER_NOTIFY_ROW_PREFIX stringByAppendingString:imageName], YES)) {
+				@autoreleasepool
+				{
 	NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
-            
+
             [delegate notifyWithName:name
                                title:title
 								 description:description
@@ -623,6 +632,7 @@ static BOOL HWGCopyBatteryHealth(NSInteger *outCycleCount, NSInteger *outHealthP
                     identifierString:name
                        contextString:nil
                               plugin:self];
+				}
 			}
 			lastPowerSource = currentSource;
 			lastKnownTime = remaining;
@@ -1207,21 +1217,21 @@ static void powerSourceChanged(void *context) {
 	// charging variants), plus the battery-failure/no-battery states. HWGIconPickerView
 	// sizes itself via its own internal Auto Layout constraints, so it's wrapped in its
 	// own NSScrollView here (the row count is long enough that it won't fit unscrolled).
-	NSMutableArray<NSArray<NSString*>*> *iconSpecs = [NSMutableArray array];
+	NSMutableArray<NSArray*> *iconSpecs = [NSMutableArray array];
 	[iconSpecs addObject:@[NSLocalizedString(@"Module Icon (Sidebar)", @""), @"HWGPrefsPower-Module"]];
-	[iconSpecs addObject:@[NSLocalizedString(@"Plugged In", @""), @"Power-Plugged"]];
+	[iconSpecs addObject:@[NSLocalizedString(@"Plugged In", @""), @"Power-Plugged", [HWG_POWER_NOTIFY_ROW_PREFIX stringByAppendingString:@"Power-Plugged"]]];
 	for (NSInteger pct = 0; pct <= 100; pct += 10) {
 		NSString *label = [NSString stringWithFormat:NSLocalizedString(@"Battery %ld%%", @""), (long)pct];
 		NSString *name = [NSString stringWithFormat:@"Power-%ld", (long)pct];
-		[iconSpecs addObject:@[label, name]];
+		[iconSpecs addObject:@[label, name, [HWG_POWER_NOTIFY_ROW_PREFIX stringByAppendingString:name]]];
 	}
 	for (NSInteger pct = 0; pct <= 100; pct += 10) {
 		NSString *label = [NSString stringWithFormat:NSLocalizedString(@"Charging %ld%%", @""), (long)pct];
 		NSString *name = [NSString stringWithFormat:@"Power-Charging-%ld", (long)pct];
-		[iconSpecs addObject:@[label, name]];
+		[iconSpecs addObject:@[label, name, [HWG_POWER_NOTIFY_ROW_PREFIX stringByAppendingString:name]]];
 	}
-	[iconSpecs addObject:@[NSLocalizedString(@"Battery Failure", @""), @"Power-BatteryFailure"]];
-	[iconSpecs addObject:@[NSLocalizedString(@"No Battery", @""), @"Power-NoBattery"]];
+	[iconSpecs addObject:@[NSLocalizedString(@"Battery Failure", @""), @"Power-BatteryFailure", [HWG_POWER_NOTIFY_ROW_PREFIX stringByAppendingString:@"Power-BatteryFailure"]]];
+	[iconSpecs addObject:@[NSLocalizedString(@"No Battery", @""), @"Power-NoBattery", [HWG_POWER_NOTIFY_ROW_PREFIX stringByAppendingString:@"Power-NoBattery"]]];
 
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:iconSpecs];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;

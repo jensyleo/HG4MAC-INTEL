@@ -24,6 +24,12 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	return stored ? [stored boolValue] : def;
 }
 
+// Per-device-type "Notify" toggle (Icons tab) — same mechanism as USB/Thunderbolt Monitor's.
+// Gates only the CONNECT notification (disconnect has no reliable class info, per the
+// existing note on `-bluetoothDisconnection:device:`).
+#define HWG_BT_NOTIFY_KEY_PREFIX @"HWGBluetoothNotifyType_"
+#define HWG_BT_NOTIFY_DISCONNECT_KEY @"HWGBluetoothNotifyDisconnect"
+
 @interface HWGrowlBluetoothMonitor ()
 
 @property (nonatomic, weak) id<HWGrowlPluginControllerProtocol> delegate;
@@ -180,6 +186,40 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	}
 }
 
+// Stable identifier per type, used to build the "Notify" defaults key — kept separate
+// from the icon-name lookup so notify-toggle identifiers survive an icon asset rename.
+// Every sub-case that falls back to a shared/no icon above also shares one "Other" key.
+-(NSString *)bluetoothTypeIdentifierForDevice:(IOBluetoothDevice *)device {
+	BluetoothDeviceClassMajor major = [device deviceClassMajor];
+	BluetoothDeviceClassMinor minor = [device deviceClassMinor];
+
+	switch (major) {
+		case kBluetoothDeviceClassMajorComputer:       return @"Computer";
+		case kBluetoothDeviceClassMajorPhone:           return @"Phone";
+		case kBluetoothDeviceClassMajorLANAccessPoint:  return @"AccessPoint";
+		case kBluetoothDeviceClassMajorWearable:        return @"Wearable";
+		case kBluetoothDeviceClassMajorHealth:           return @"Health";
+		case kBluetoothDeviceClassMajorPeripheral: {
+			uint8_t peripheralType = minor & 0x30;
+			if (peripheralType == 0x10) return @"Keyboard";
+			if (peripheralType == 0x20) return @"Mouse";
+			if (peripheralType == 0x30) return @"Combo";
+			return @"Other";
+		}
+		case kBluetoothDeviceClassMajorAudio: {
+			switch (minor) {
+				case kBluetoothDeviceClassMinorAudioHeadset:
+				case kBluetoothDeviceClassMinorAudioHandsFree: return @"Headset";
+				case kBluetoothDeviceClassMinorAudioMicrophone: return @"Microphone";
+				case kBluetoothDeviceClassMinorAudioLoudspeaker: return @"Speaker";
+				case kBluetoothDeviceClassMinorAudioHeadphones: return @"Headphones";
+				default: return @"Other";
+			}
+		}
+		default: return @"Other";
+	}
+}
+
 -(NSString *)bluetoothExtraInfoForDevice:(IOBluetoothDevice *)device {
 	NSMutableArray<NSString*> *lines = [NSMutableArray array];
 
@@ -206,7 +246,9 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 {
 	// No extraInfo on disconnect: class/paired-state read the same way as connect, but a
 	// disconnecting device's properties are less reliably available by the time this fires.
-	[self bluetoothName:[device name] connected:NO iconName:nil extraInfo:nil];
+	if (HWGBTBoolForKey(HWG_BT_NOTIFY_DISCONNECT_KEY, YES)) {
+		[self bluetoothName:[device name] connected:NO iconName:nil extraInfo:nil];
+	}
 	[note unregister];
 	NSString *address = [device addressString];
 	if (address) [disconnectNotifications removeObjectForKey:address];
@@ -235,12 +277,18 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 			NSString *name = [device name];
 			NSString *iconName = [self bluetoothIconNameForDevice:device];
 			NSString *extraInfo = [self bluetoothExtraInfoForDevice:device];
-			__weak typeof(self) weakSelf = self;
-			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-				[weakSelf bluetoothName:name connected:YES iconName:iconName extraInfo:extraInfo];
-			});
+			NSString *notifyKey = [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:[self bluetoothTypeIdentifierForDevice:device]];
+			if (HWGBTBoolForKey(notifyKey, YES)) {
+				__weak typeof(self) weakSelf = self;
+				dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+					[weakSelf bluetoothName:name connected:YES iconName:iconName extraInfo:extraInfo];
+				});
+			}
 		} else {
-			[self bluetoothName:[device name] connected:YES iconName:[self bluetoothIconNameForDevice:device] extraInfo:[self bluetoothExtraInfoForDevice:device]];
+			NSString *notifyKey = [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:[self bluetoothTypeIdentifierForDevice:device]];
+			if (HWGBTBoolForKey(notifyKey, YES)) {
+				[self bluetoothName:[device name] connected:YES iconName:[self bluetoothIconNameForDevice:device] extraInfo:[self bluetoothExtraInfoForDevice:device]];
+			}
 		}
 	}
 }
@@ -325,20 +373,20 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"HWGPrefsBluetooth-Module"],
-		@[@"Computer", @"BT-TypeComputer"],
-		@[@"Phone", @"BT-TypePhone"],
-		@[@"Access Point", @"BT-TypeAccessPoint"],
-		@[@"Wearable", @"BT-TypeWearable"],
-		@[@"Health", @"BT-TypeHealth"],
-		@[@"Keyboard", @"BT-TypeKeyboard"],
-		@[@"Mouse", @"BT-TypeMouse"],
-		@[@"Combo", @"BT-TypeCombo"],
-		@[@"Headset", @"BT-TypeHeadset"],
-		@[@"Microphone", @"BT-TypeMicrophone"],
-		@[@"Speaker", @"BT-TypeSpeaker"],
-		@[@"Headphones", @"BT-TypeHeadphones"],
-		@[@"Connected (generic)", @"Bluetooth-On"],
-		@[@"Disconnected", @"Bluetooth-Off"],
+		@[@"Computer", @"BT-TypeComputer", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Computer"]],
+		@[@"Phone", @"BT-TypePhone", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Phone"]],
+		@[@"Access Point", @"BT-TypeAccessPoint", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"AccessPoint"]],
+		@[@"Wearable", @"BT-TypeWearable", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Wearable"]],
+		@[@"Health", @"BT-TypeHealth", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Health"]],
+		@[@"Keyboard", @"BT-TypeKeyboard", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Keyboard"]],
+		@[@"Mouse", @"BT-TypeMouse", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Mouse"]],
+		@[@"Combo", @"BT-TypeCombo", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Combo"]],
+		@[@"Headset", @"BT-TypeHeadset", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Headset"]],
+		@[@"Microphone", @"BT-TypeMicrophone", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Microphone"]],
+		@[@"Speaker", @"BT-TypeSpeaker", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Speaker"]],
+		@[@"Headphones", @"BT-TypeHeadphones", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Headphones"]],
+		@[@"Connected (generic)", @"Bluetooth-On", [HWG_BT_NOTIFY_KEY_PREFIX stringByAppendingString:@"Other"]],
+		@[@"Disconnected", @"Bluetooth-Off", HWG_BT_NOTIFY_DISCONNECT_KEY],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

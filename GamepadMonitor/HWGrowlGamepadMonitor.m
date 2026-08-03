@@ -22,6 +22,7 @@
 #define HWG_GAMEPAD_SHOW_CATEGORY_KEY    @"HWGGamepadShowCategory"
 #define HWG_GAMEPAD_SHOW_PLAYER_INDEX_KEY @"HWGGamepadShowPlayerIndex"
 #define HWG_GAMEPAD_SHOW_BATTERY_KEY     @"HWGGamepadShowBattery"
+#define HWG_GAMEPAD_NOTIFY_KEY           @"HWGGamepadNotifyConnect"
 
 static BOOL HWGGamepadBoolForKey(NSString *key, BOOL def) {
 	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
@@ -104,6 +105,8 @@ static BOOL HWGGamepadBoolForKey(NSString *key, BOOL def) {
 }
 
 -(void)controllerConnected:(NSNotification *)note {
+	if (!HWGGamepadBoolForKey(HWG_GAMEPAD_NOTIFY_KEY, YES)) return;
+
 	GCController *controller = note.object;
 	NSString *name = controller.vendorName ?: NSLocalizedString(@"Game Controller", @"");
 	NSString *extraInfo = [self extraInfoForController:controller];
@@ -119,6 +122,8 @@ static BOOL HWGGamepadBoolForKey(NSString *key, BOOL def) {
 }
 
 -(void)controllerDisconnected:(NSNotification *)note {
+	if (!HWGGamepadBoolForKey(HWG_GAMEPAD_NOTIFY_KEY, YES)) return;
+
 	GCController *controller = note.object;
 	NSString *name = controller.vendorName ?: NSLocalizedString(@"Game Controller", @"");
 
@@ -215,7 +220,7 @@ static BOOL HWGGamepadBoolForKey(NSString *key, BOOL def) {
 	CGFloat iconsWidth = 560 - 2 * iconsPad;
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"GamepadMonitor-Icon-Module"],
-		@[@"Game Controller", @"GamepadMonitor-Icon"],
+		@[@"Game Controller", @"GamepadMonitor-Icon", HWG_GAMEPAD_NOTIFY_KEY],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

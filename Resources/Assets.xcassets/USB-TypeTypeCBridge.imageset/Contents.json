@@ -1,0 +1,16 @@
+{
+  "images" : [
+    {
+      "idiom" : "mac",
+      "scale" : "1x",
+      "filename" : "USB-TypeTypeCBridge.png"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  },
+  "properties" : {
+    "preserves-vector-representation" : false
+  }
+}

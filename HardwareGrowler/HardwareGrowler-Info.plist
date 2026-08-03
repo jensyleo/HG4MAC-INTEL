@@ -40,12 +40,12 @@
 	<array>
 		<string>_scanner._tcp</string>
 		<string>_uscan._tcp</string>
-		<!-- Not used directly by our own code — CUPS's cupsGetDests() (used by Printer
+		<!-- Not used directly by our own code — CUPS cupsGetDests() (used by Printer
 		     Monitor since v1.6.0) does its own Bonjour/DNS-SD discovery of network printers
-		     internally. Declaring NSBonjourServices turns it into an allowlist for the WHOLE
-		     app/process, so without these two, mDNSResponder silently blocked CUPS's printer
-		     discovery the moment Scanner Monitor's entries were added (confirmed via
-		     mDNSResponder logs: "does not allow '_ipp._tcp.'"). -->
+		     internally. Declaring NSBonjourServices turns it into an allowlist for the whole
+		     app process, so without these two, mDNSResponder silently blocked the CUPS printer
+		     discovery the moment Scanner Monitor entries were added (confirmed via
+		     mDNSResponder logs: does not allow _ipp._tcp.). -->
 		<string>_ipp._tcp</string>
 		<string>_ipps._tcp</string>
 	</array>

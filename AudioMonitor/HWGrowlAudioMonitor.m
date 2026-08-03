@@ -35,6 +35,7 @@
 #define HWG_AUDIO_NOTIFY_DEFAULT_OUTPUT_KEY  @"HWGAudioNotifyDefaultOutput"
 #define HWG_AUDIO_NOTIFY_DEFAULT_INPUT_KEY   @"HWGAudioNotifyDefaultInput"
 #define HWG_AUDIO_NOTIFY_DEVICE_CONNECT_KEY  @"HWGAudioNotifyDeviceConnect"
+#define HWG_AUDIO_NOTIFY_DEVICE_DISCONNECT_KEY @"HWGAudioNotifyDeviceDisconnect"
 
 static BOOL HWGAudioBoolForKey(NSString *key, BOOL def) {
 	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
@@ -65,7 +66,9 @@ static BOOL HWGAudioBoolForKey(NSString *key, BOOL def) {
 // AudioObjectRemovePropertyListenerBlock identifies which listener to remove by comparing
 // the exact block pointer passed to AudioObjectAddPropertyListenerBlock — passing a
 // different block (or nil) is a silent no-op, leaving the original listener registered
-// forever. These must be the SAME block references used at registration time.
+// forever. These must be the SAME block references used at registration time. `copy` (not
+// `strong`) is the correct qualifier for a block property — it moves the block from the
+// stack to the heap, which `strong` alone doesn't guarantee.
 @property (nonatomic, copy) AudioObjectPropertyListenerBlock devicesListenerBlock;
 @property (nonatomic, copy) AudioObjectPropertyListenerBlock defaultOutputListenerBlock;
 @property (nonatomic, copy) AudioObjectPropertyListenerBlock defaultInputListenerBlock;
@@ -320,6 +323,7 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		// reportedDeviceIDs), keeping the two symmetric without needing the transport again.
 		if (![reportedDeviceIDs containsObject:deviceID]) continue;
 		[reportedDeviceIDs removeObject:deviceID];
+		if (!HWGAudioBoolForKey(HWG_AUDIO_NOTIFY_DEVICE_DISCONNECT_KEY, YES)) continue;
 		[delegate notifyWithName:@"AudioDeviceDisconnected"
 							 title:NSLocalizedString(@"Audio Device Disconnected", @"")
 					   description:lastKnownName
@@ -463,8 +467,8 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 	CGFloat iconsWidth = 560 - 2 * iconsPad;
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"AudioMonitor-Icon-Module"],
-		@[@"Connected", @"AudioMonitor-Icon"],
-		@[@"Disconnected/Muted", @"AudioMonitor-Icon-Off"],
+		@[@"Connected", @"AudioMonitor-Icon", HWG_AUDIO_NOTIFY_DEVICE_CONNECT_KEY],
+		@[@"Disconnected/Muted", @"AudioMonitor-Icon-Off", HWG_AUDIO_NOTIFY_DEVICE_DISCONNECT_KEY],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

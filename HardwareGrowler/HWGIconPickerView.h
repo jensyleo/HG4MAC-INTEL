@@ -38,9 +38,26 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface HWGIconPickerView : NSView
 
-// `iconSpecs` is an array of two-element arrays: @[label, defaultIconName].
-// e.g. @[ @[@"Hub", @"USB-TypeHub"], @[@"Keyboard/Mouse", @"USB-TypeHID"] ]
-- (instancetype)initWithIconSpecs:(NSArray<NSArray<NSString *> *> *)iconSpecs;
+// `iconSpecs` is an array of two-, three-, or four-element arrays:
+//   @[label, defaultIconName]                       — icon row only (e.g. "Module Icon
+//                                                       (Sidebar)", which isn't a distinct
+//                                                       notification event).
+//   @[label, defaultIconName, notifyKey]             — same, plus a "Notify?" Yes/No column
+//                                                       bound directly to that NSUserDefaults
+//                                                       key (read with a YES default —
+//                                                       unchecking silences that row's
+//                                                       notification without touching its icon).
+//   @[label, defaultIconName, notifyKey, @(NO)]      — same, but the checkbox (and the
+//                                                       underlying default read when the key
+//                                                       has never been set) defaults to OFF
+//                                                       instead of ON. Use only when the
+//                                                       monitor's own notify-gating code reads
+//                                                       that same key with a non-YES default —
+//                                                       this must always match, or the
+//                                                       checkbox's initial state lies about
+//                                                       actual behavior until first toggled.
+// e.g. @[ @[@"Hub", @"USB-TypeHub", @"HWGUSBNotifyType_Hub"], @[@"Module Icon (Sidebar)", @"HWGPrefsUSB-Module"] ]
+- (instancetype)initWithIconSpecs:(NSArray<NSArray *> *)iconSpecs;
 
 @end
 

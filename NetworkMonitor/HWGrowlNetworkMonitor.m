@@ -69,6 +69,20 @@
 // interface-name prefix macOS gives virtual tunnel interfaces.
 #define HWG_VPN_NOTIFY_KEY @"HWGNetworkNotifyVPN"
 
+// Per-row "Notify?" checkboxes (Icons tab) — one per icon row, matching the USB/Thunderbolt/
+// Bluetooth/Volume Monitor pattern. Several rows share one underlying notifyWithName call
+// (5 Wi-Fi signal-level rows share AirportSignalChange; Ethernet/Other Interface share
+// NetworkLinkUp/Down; Generic Connected/Disconnected share IPAddressChange) — each such call
+// site is gated by looking up the specific row key for the icon it's about to use.
+#define HWG_NET_NOTIFY_WIFI_BAR_PREFIX   @"HWGNetworkNotifyWifiBar"   // + 0/1/2/3/4
+#define HWG_NET_NOTIFY_WIFI_OFF_KEY      @"HWGNetworkNotifyWifiOff"
+#define HWG_NET_NOTIFY_ETH_ON_KEY        @"HWGNetworkNotifyEthernetOn"
+#define HWG_NET_NOTIFY_ETH_OFF_KEY       @"HWGNetworkNotifyEthernetOff"
+#define HWG_NET_NOTIFY_OTHER_ON_KEY      @"HWGNetworkNotifyOtherOn"
+#define HWG_NET_NOTIFY_OTHER_OFF_KEY     @"HWGNetworkNotifyOtherOff"
+#define HWG_NET_NOTIFY_GENERIC_ON_KEY    @"HWGNetworkNotifyGenericOn"
+#define HWG_NET_NOTIFY_GENERIC_OFF_KEY   @"HWGNetworkNotifyGenericOff"
+
 // HWGFlippedContentView now lives in HWGIconPickerView.h/.m (shared across every monitor's
 // Icons tab) — this file already imports that header, so no local definition needed here.
 
@@ -428,6 +442,13 @@ typedef enum {
 	NSString *desc = [NSString stringWithFormat:
 		NSLocalizedString(@"%@\nSignal %@ %@ (%ld/4)", @"network name, arrow, improved/degraded, bars"),
 		ssid, arrow, dir, (long)bars];
+	NSString *barKey = [HWG_NET_NOTIFY_WIFI_BAR_PREFIX stringByAppendingFormat:@"%ld", (long)bars];
+	if (![self boolForKey:barKey default:YES]) {
+		self.lastReportedWifiBars = bars;
+		self.lastSignalNoteTime = [NSDate date];
+		return;
+	}
+
 	NSData *iconData = [HWGResolveIconNamed([NSString stringWithFormat:@"Network-Wifi-%ld", (long)bars]) TIFFRepresentation];
 
 	[delegate notifyWithName:@"AirportSignalChange"
@@ -653,6 +674,7 @@ typedef enum {
 }
 
 -(void)airportDisconnected:(NSString*)networkName {
+	if (![self boolForKey:HWG_NET_NOTIFY_WIFI_OFF_KEY default:YES]) return;
 	NSData *iconData = [HWGResolveIconNamed(@"Network-Wifi-Off") TIFFRepresentation];
     [delegate notifyWithName:@"AirportDisconnected"
 							 title:NSLocalizedString(@"AirPort Disconnected", @"")
@@ -851,9 +873,17 @@ typedef enum {
 		imageName = isEthernet ? @"Network-Ethernet-Off" : @"Network-Interface-Off";
 	}
 	
-	NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
-   
+	NSString *rowKey = nil;
+	if ([imageName isEqualToString:@"Network-Ethernet-On"]) rowKey = HWG_NET_NOTIFY_ETH_ON_KEY;
+	else if ([imageName isEqualToString:@"Network-Ethernet-Off"]) rowKey = HWG_NET_NOTIFY_ETH_OFF_KEY;
+	else if ([imageName isEqualToString:@"Network-Interface-On"]) rowKey = HWG_NET_NOTIFY_OTHER_ON_KEY;
+	else if ([imageName isEqualToString:@"Network-Interface-Off"]) rowKey = HWG_NET_NOTIFY_OTHER_OFF_KEY;
+	if (rowKey && ![self boolForKey:rowKey default:YES]) noteName = nil;
+
 	if(noteName){
+		// imageName is only nil when neither transition branch above ran, i.e. exactly the
+		// case where noteName is also still nil — so it's always set here.
+		NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
 		[delegate notifyWithName:noteName
 								 title:noteTitle
 						 description:noteDescription
@@ -1179,6 +1209,9 @@ static int cidrBitsFromNetmaskV4(uint32_t netmask) {
 		imageName   = anyRoutable ? @"Network-Generic-On" : @"Network-Generic-Off";
 	}
 
+	NSString *genericRowKey = [imageName isEqualToString:@"Network-Generic-On"] ? HWG_NET_NOTIFY_GENERIC_ON_KEY : HWG_NET_NOTIFY_GENERIC_OFF_KEY;
+	if (![self boolForKey:genericRowKey default:YES]) return;
+
 	NSData *iconData = [HWGResolveIconNamed(imageName) TIFFRepresentation];
 	[delegate notifyWithName:@"IPAddressChange"
 							 title:NSLocalizedString(@"IP Addresses Updated", @"")
@@ -1503,18 +1536,18 @@ static void scCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *in
 
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"HWGPrefsNetwork-Module"],
-		@[@"Wi-Fi — No Signal", @"Network-Wifi-0"],
-		@[@"Wi-Fi — Weak", @"Network-Wifi-1"],
-		@[@"Wi-Fi — Fair", @"Network-Wifi-2"],
-		@[@"Wi-Fi — Good", @"Network-Wifi-3"],
-		@[@"Wi-Fi — Excellent", @"Network-Wifi-4"],
-		@[@"Wi-Fi Off", @"Network-Wifi-Off"],
-		@[@"Ethernet Connected", @"Network-Ethernet-On"],
-		@[@"Ethernet Disconnected", @"Network-Ethernet-Off"],
-		@[@"Other Interface Connected", @"Network-Interface-On"],
-		@[@"Other Interface Disconnected", @"Network-Interface-Off"],
-		@[@"Generic Connected", @"Network-Generic-On"],
-		@[@"Generic Disconnected", @"Network-Generic-Off"],
+		@[@"Wi-Fi — No Signal", @"Network-Wifi-0", [HWG_NET_NOTIFY_WIFI_BAR_PREFIX stringByAppendingString:@"0"]],
+		@[@"Wi-Fi — Weak", @"Network-Wifi-1", [HWG_NET_NOTIFY_WIFI_BAR_PREFIX stringByAppendingString:@"1"]],
+		@[@"Wi-Fi — Fair", @"Network-Wifi-2", [HWG_NET_NOTIFY_WIFI_BAR_PREFIX stringByAppendingString:@"2"]],
+		@[@"Wi-Fi — Good", @"Network-Wifi-3", [HWG_NET_NOTIFY_WIFI_BAR_PREFIX stringByAppendingString:@"3"]],
+		@[@"Wi-Fi — Excellent", @"Network-Wifi-4", [HWG_NET_NOTIFY_WIFI_BAR_PREFIX stringByAppendingString:@"4"]],
+		@[@"Wi-Fi Off", @"Network-Wifi-Off", HWG_NET_NOTIFY_WIFI_OFF_KEY],
+		@[@"Ethernet Connected", @"Network-Ethernet-On", HWG_NET_NOTIFY_ETH_ON_KEY],
+		@[@"Ethernet Disconnected", @"Network-Ethernet-Off", HWG_NET_NOTIFY_ETH_OFF_KEY],
+		@[@"Other Interface Connected", @"Network-Interface-On", HWG_NET_NOTIFY_OTHER_ON_KEY],
+		@[@"Other Interface Disconnected", @"Network-Interface-Off", HWG_NET_NOTIFY_OTHER_OFF_KEY],
+		@[@"Generic Connected", @"Network-Generic-On", HWG_NET_NOTIFY_GENERIC_ON_KEY],
+		@[@"Generic Disconnected", @"Network-Generic-Off", HWG_NET_NOTIFY_GENERIC_OFF_KEY],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

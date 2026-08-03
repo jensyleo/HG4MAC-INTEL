@@ -42,6 +42,11 @@
 // "Known limitations" README entry), so it doesn't get the same on-by-default trust.
 #define HWG_VOLUME_SHOW_INTERFACE_KEY @"HWGVolumeShowInterfaceType"
 
+// Per-device-type "Notify" toggle (Icons tab) — same mechanism as USB/Thunderbolt/Bluetooth
+// Monitor's. Gates only the MOUNT notification for that category; unmount always notifies
+// (category is read from a mount-time cache purely for icon selection, independent of this).
+#define HWG_VOLUME_NOTIFY_KEY_PREFIX @"HWGVolumeNotifyType_"
+
 static BOOL HWGVolumeBoolForKey(NSString *key, BOOL def) {
 	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
 	return stored ? [stored boolValue] : def;
@@ -661,6 +666,10 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 	NSString *category = self.groupDeviceCategory[groupKey];
 	NSString *iconName = HWGDeviceIconNameForCategory(category, YES) ?: @"Device-Critical";
 	NSData *icon = [HWGResolveIconNamed(iconName) TIFFRepresentation];
+
+	NSString *notifyKey = [[HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:category ?: @"Other"] stringByAppendingString:@"_Critical"];
+	if (!HWGVolumeBoolForKey(notifyKey, YES)) return;
+
 	[delegate notifyWithName:@"VolumeNotReadable"
 							 title:NSLocalizedString(@"Disk Not Readable", @"")
 					 description:description
@@ -826,13 +835,15 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 	// F30: best-effort device-specific icon (SDCard/USBDrive/ExternalDisk) in place of the
 	// generic mount/eject icon, when the classifier had enough to go on.
 	NSData *iconData = [volume iconData];
+	NSString *mountCategory = nil;
+	NSString *unmountCategory = nil;
 	if (mounted) {
-		NSString *category = [self deviceCategoryForMountedPath:[volume path]];
+		mountCategory = [self deviceCategoryForMountedPath:[volume path]];
 		// Cache now, at mount time — the only point this query is always reliable — so
 		// -volumeDidUnmount: can use it later even for a surprise removal (no prior
 		// Finder eject, no -volumeWillUnmount: firing, path already gone by then).
-		if (category && [volume path]) self.pathDeviceCategory[[volume path]] = category;
-		NSString *iconName = HWGDeviceIconNameForCategory(category, NO);
+		if (mountCategory && [volume path]) self.pathDeviceCategory[[volume path]] = mountCategory;
+		NSString *iconName = HWGDeviceIconNameForCategory(mountCategory, NO);
 		if (iconName) iconData = [HWGResolveIconNamed(iconName) TIFFRepresentation];
 	} else {
 		// Bug found live (23-jul-2026): unmount always showed the plain generic eject
@@ -843,8 +854,8 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 		// generic in that case. Now reads the category cached at MOUNT time instead,
 		// which covers both. Same red-X-over-the-icon treatment as the existing generic
 		// eject icon (per explicit user request — not a new badge design).
-		NSString *category = self.pathDeviceCategory[[volume path]] ?: [volume deviceCategory];
-		NSString *iconName = HWGDeviceIconNameForCategoryVariant(category, @"Unmounted");
+		unmountCategory = self.pathDeviceCategory[[volume path]] ?: [volume deviceCategory];
+		NSString *iconName = HWGDeviceIconNameForCategoryVariant(unmountCategory, @"Unmounted");
 		if (iconName) iconData = [HWGResolveIconNamed(iconName) TIFFRepresentation];
 		if ([volume path]) [self.pathDeviceCategory removeObjectForKey:[volume path]];
 	}
@@ -888,12 +899,20 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 		}
 	}
 
+	if (mounted) {
+		NSString *notifyKey = [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:mountCategory ?: @"Other"];
+		if (!HWGVolumeBoolForKey(notifyKey, YES)) return;
+	} else {
+		NSString *notifyKey = [[HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:unmountCategory ?: @"Other"] stringByAppendingString:@"_Unmounted"];
+		if (!HWGVolumeBoolForKey(notifyKey, YES)) return;
+	}
+
 	[delegate notifyWithName:type
 							 title:title
 					 description:description
 							  icon:iconData
 			  identifierString:[volume path]
-				  contextString:context 
+				  contextString:context
 							plugin:self];
 }
 
@@ -1158,24 +1177,24 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"HWGPrefsDrivesVolumes-Module"],
-		@[@"Optical", @"Device-Optical"],
-		@[@"Optical (Unmounted)", @"Device-Optical-Unmounted"],
-		@[@"Optical (Critical)", @"Device-Optical-Critical"],
-		@[@"NAS", @"Device-NAS"],
-		@[@"NAS (Unmounted)", @"Device-NAS-Unmounted"],
-		@[@"NAS (Critical)", @"Device-NAS-Critical"],
-		@[@"External Disk", @"Device-ExternalDisk"],
-		@[@"External Disk (Unmounted)", @"Device-ExternalDisk-Unmounted"],
-		@[@"External Disk (Critical)", @"Device-ExternalDisk-Critical"],
-		@[@"SD Card", @"Device-SDCard"],
-		@[@"SD Card (Unmounted)", @"Device-SDCard-Unmounted"],
-		@[@"SD Card (Critical)", @"Device-SDCard-Critical"],
-		@[@"USB Drive", @"Device-USBDrive"],
-		@[@"USB Drive (Unmounted)", @"Device-USBDrive-Unmounted"],
-		@[@"USB Drive (Critical)", @"Device-USBDrive-Critical"],
-		@[@"Critical (generic)", @"Device-Critical"],
-		@[@"Mounted (generic)", @"DisksVolumes-Mounted"],
-		@[@"Unmounted (generic)", @"DisksVolumes-Eject"],
+		@[@"Optical", @"Device-Optical", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"Optical"]],
+		@[@"Optical (Unmounted)", @"Device-Optical-Unmounted", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"Optical_Unmounted"]],
+		@[@"Optical (Critical)", @"Device-Optical-Critical", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"Optical_Critical"]],
+		@[@"NAS", @"Device-NAS", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"NAS"]],
+		@[@"NAS (Unmounted)", @"Device-NAS-Unmounted", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"NAS_Unmounted"]],
+		@[@"NAS (Critical)", @"Device-NAS-Critical", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"NAS_Critical"]],
+		@[@"External Disk", @"Device-ExternalDisk", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"ExternalDisk"]],
+		@[@"External Disk (Unmounted)", @"Device-ExternalDisk-Unmounted", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"ExternalDisk_Unmounted"]],
+		@[@"External Disk (Critical)", @"Device-ExternalDisk-Critical", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"ExternalDisk_Critical"]],
+		@[@"SD Card", @"Device-SDCard", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"SDCard"]],
+		@[@"SD Card (Unmounted)", @"Device-SDCard-Unmounted", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"SDCard_Unmounted"]],
+		@[@"SD Card (Critical)", @"Device-SDCard-Critical", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"SDCard_Critical"]],
+		@[@"USB Drive", @"Device-USBDrive", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"USBDrive"]],
+		@[@"USB Drive (Unmounted)", @"Device-USBDrive-Unmounted", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"USBDrive_Unmounted"]],
+		@[@"USB Drive (Critical)", @"Device-USBDrive-Critical", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"USBDrive_Critical"]],
+		@[@"Critical (generic)", @"Device-Critical", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"Other_Critical"]],
+		@[@"Mounted (generic)", @"DisksVolumes-Mounted", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"Other"]],
+		@[@"Unmounted (generic)", @"DisksVolumes-Eject", [HWG_VOLUME_NOTIFY_KEY_PREFIX stringByAppendingString:@"Other_Unmounted"]],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

@@ -30,29 +30,16 @@ NS_ASSUME_NONNULL_BEGIN
 // The override image for `defaultName`, or nil if none is set.
 - (nullable NSImage *)overrideImageForDefaultName:(NSString *)defaultName;
 
-// Icon customization got broad enough (12 monitors, 3 ways to set an icon each) that the
-// user asked for a way to back up/restore the whole set at once. Bundles the entire
-// overrides directory (index + every normalized PNG) into a single zip archive via
-// `/usr/bin/ditto` (no extra dependency — same tool `github-publish` workflows in this
-// project already shell out to for zipping release builds).
-- (BOOL)exportProfileToURL:(NSURL *)destinationURL error:(NSError * _Nullable * _Nullable)error;
-
-// Replaces the current overrides directory with the contents of a previously-exported
-// zip archive, then reloads the in-memory index/cache from disk. Existing overrides not
-// present in the imported profile are removed (a full restore, not a merge).
-- (BOOL)importProfileFromURL:(NSURL *)sourceURL error:(NSError * _Nullable * _Nullable)error;
-
 // The on-disk folder overrides live in (Application Support/<bundle id>/IconOverrides) —
-// exposed so AppDelegate's combined "Settings Profile" export/import (icons + defaults.
-// together) can fold this same folder into a bigger archive without duplicating the
-// zip/unzip logic above.
+// exposed so AppDelegate's combined "Settings Profile" export/import (icons + defaults
+// together) can fold this same folder into a bigger archive without duplicating zip/unzip
+// logic of its own.
 - (NSURL *)overridesDirectoryURL;
 
 // Re-reads the index and clears the decoded-image cache from whatever is currently on
 // disk — call after replacing the overrides folder out from under the store (e.g. the
-// combined settings-profile import copies files in directly, bypassing
-// -importProfileFromURL:error:, then calls this instead of duplicating that method's
-// reload step).
+// combined settings-profile import copies files in directly, then calls this instead of
+// implementing its own reload step).
 - (void)reloadFromDisk;
 
 @end

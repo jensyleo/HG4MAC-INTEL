@@ -321,10 +321,10 @@ static BOOL HWGThermalBoolForKey(NSString *key, BOOL def) {
 	CGFloat iconsWidth = 560 - 2 * iconsPad;
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"HWGPrefsThermal-Module"],
-		@[@"Nominal", @"Thermal-Nominal"],
-		@[@"Fair", @"Thermal-Fair"],
-		@[@"Serious", @"Thermal-Serious"],
-		@[@"Critical", @"Thermal-Critical"],
+		@[@"Nominal", @"Thermal-Nominal", HWG_THERMAL_NOTIFY_NOMINAL_KEY, @NO],
+		@[@"Fair", @"Thermal-Fair", HWG_THERMAL_NOTIFY_FAIR_KEY, @NO],
+		@[@"Serious", @"Thermal-Serious", HWG_THERMAL_NOTIFY_SERIOUS_KEY, @YES],
+		@[@"Critical", @"Thermal-Critical", HWG_THERMAL_NOTIFY_CRITICAL_KEY, @YES],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
