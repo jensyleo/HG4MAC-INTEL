@@ -151,7 +151,17 @@
 	// fireOnLaunchNotes and a real connect event report the same thing).
 	// Skip if an identical notification (same name + identifier + description)
 	// was already shown within the cooldown window.
-	{
+	//
+	// BUG FIX (05-ago-2026): Camera/Audio Monitor's in-use "-started"/"-stopped"
+	// identifiers are real, already-debounced state transitions computed upstream —
+	// never accidental repeats like the cold-boot double this cache exists for. During
+	// fast toggling (on/off/on within under 3s) the SAME identifier+description recurs
+	// (e.g. "started" fires again), so this cache was silently eating every other
+	// transition — the exact "stopped appearing until the last one clears" symptom
+	// reported after the identifier fix. Exempt these from dedup; bounce detection
+	// below already handles genuine flapping.
+	BOOL isStateTransition = [identifier hasSuffix:@"-started"] || [identifier hasSuffix:@"-stopped"];
+	if (!isStateTransition) {
 		static NSMutableDictionary *recentNotes = nil;
 		static dispatch_once_t onceToken;
 		dispatch_once(&onceToken, ^{ recentNotes = [[NSMutableDictionary alloc] init]; });
@@ -178,7 +188,25 @@
 	// Bounce detection: if the same device (identifier) produces many events in
 	// a short window, surface ONE extra "unstable device" alert. The individual
 	// connect/disconnect notifications are still shown — this only adds a heads-up.
-	if (identifier && [identifier length]) {
+	//
+	// BUG FIX (05-ago-2026): Camera/Audio Monitor's "in use"/"idle" notifications now append
+	// "-started"/"-stopped" to their identifierString (see those files' own fix, same date) so
+	// UNUserNotificationCenter treats each transition as its own banner instead of silently
+	// replacing the still-visible previous one. That fix accidentally split THIS bounce
+	// counter too — "-started" and "-stopped" events used to share one identifier and count
+	// toward the same total, but now accrue separately, so a camera flapping on/off/on/off
+	// needed 4 of the SAME direction to trip the threshold instead of 4 toggles total.
+	// Stripping that suffix here (bounce-grouping only — the actual notification identifier
+	// above is untouched) restores counting both directions together, matching the user's
+	// request to have rapid in-use toggling surface the same "device is unstable" heads-up
+	// other flapping hardware already gets.
+	NSString *bounceIdentifier = identifier;
+	if ([bounceIdentifier hasSuffix:@"-started"]) {
+		bounceIdentifier = [bounceIdentifier substringToIndex:bounceIdentifier.length - @"-started".length];
+	} else if ([bounceIdentifier hasSuffix:@"-stopped"]) {
+		bounceIdentifier = [bounceIdentifier substringToIndex:bounceIdentifier.length - @"-stopped".length];
+	}
+	if (bounceIdentifier && [bounceIdentifier length]) {
 		static NSMutableDictionary *bounceTimes = nil;    // identifier -> NSMutableArray<NSDate>
 		static NSMutableDictionary *bounceAlerted = nil;  // identifier -> NSDate (last alert)
 		static dispatch_once_t bounceOnce;
@@ -203,18 +231,18 @@
 			[bounceTimes removeObjectsForKeys:staleIds];
 			[bounceAlerted removeObjectsForKeys:staleIds];
 			NSMutableArray *kept = [NSMutableArray array];
-			for (NSDate *t in (NSArray *)[bounceTimes objectForKey:identifier]) {
+			for (NSDate *t in (NSArray *)[bounceTimes objectForKey:bounceIdentifier]) {
 				if ([now timeIntervalSinceDate:t] < bounceWindow) [kept addObject:t];
 			}
 			[kept addObject:now];
-			[bounceTimes setObject:kept forKey:identifier];
+			[bounceTimes setObject:kept forKey:bounceIdentifier];
 			eventCount = [kept count];
 
 			if (eventCount >= bounceThreshold) {
-				NSDate *lastAlert = [bounceAlerted objectForKey:identifier];
+				NSDate *lastAlert = [bounceAlerted objectForKey:bounceIdentifier];
 				if (!lastAlert || [now timeIntervalSinceDate:lastAlert] >= bounceWindow) {
 					shouldAlert = YES;
-					[bounceAlerted setObject:now forKey:identifier];
+					[bounceAlerted setObject:now forKey:bounceIdentifier];
 				}
 			}
 		}
@@ -232,11 +260,11 @@
 				@"PowerChange":            @"Power",
 				@"PowerWarning":           @"Power",
 			};
-			NSString *deviceLabel = identifier;
-			if ([labelMap objectForKey:identifier]) {
-				deviceLabel = [labelMap objectForKey:identifier];
-			} else if ([identifier hasPrefix:@"HWGrowl"]) {
-				deviceLabel = [identifier substringFromIndex:[@"HWGrowl" length]];
+			NSString *deviceLabel = bounceIdentifier;
+			if ([labelMap objectForKey:bounceIdentifier]) {
+				deviceLabel = [labelMap objectForKey:bounceIdentifier];
+			} else if ([bounceIdentifier hasPrefix:@"HWGrowl"]) {
+				deviceLabel = [bounceIdentifier substringFromIndex:[@"HWGrowl" length]];
 			}
 			NSString *desc = [NSString stringWithFormat:
 				NSLocalizedString(@"%@ is unstable\nPlease check the device", @""),
@@ -249,7 +277,7 @@
 										   priority:1
 										   isSticky:NO
 									   clickContext:nil
-										 identifier:[@"HWGBounce-" stringByAppendingString:identifier]];
+										 identifier:[@"HWGBounce-" stringByAppendingString:bounceIdentifier]];
 		}
 	}
 

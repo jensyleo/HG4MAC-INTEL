@@ -8,6 +8,17 @@
 
 NSNotificationName const HWGNotificationHistoryDidChangeNotification = @"HWGNotificationHistoryDidChangeNotification";
 
+// BUG FIX (05-ago-2026): the only existing cap was time-based (1-30 days, user-configurable
+// retention), with no ceiling on ENTRY COUNT. Camera/Audio Monitor's in-use notifications
+// (added this session) can legitimately fire dozens of times a day per device — over even a
+// modest retention window that's thousands of JSON-serialized entries, all held in memory
+// AND rewritten in full on every single -addEntryWithModuleBundleID:... call (see -persist),
+// since disk writes were never batched (entry volume was assumed low when this was written —
+// true for connect/disconnect events, no longer true for in-use toggling). Capping the buffer
+// independently of the day-based prune keeps both memory and per-write cost bounded regardless
+// of how chatty a module gets.
+static const NSUInteger kHWGNotificationHistoryMaxEntries = 500;
+
 @implementation HWGNotificationHistoryEntry
 
 - (NSDictionary *)dictionaryRepresentation {
@@ -52,6 +63,12 @@ NSNotificationName const HWGNotificationHistoryDidChangeNotification = @"HWGNoti
 	if (self) {
 		self.queue = dispatch_queue_create("com.jensyleo.hg4mac.notificationhistory", DISPATCH_QUEUE_SERIAL);
 		self.entries = [[self loadFromDisk] mutableCopy] ?: [NSMutableArray array];
+		// A file written before this cap existed may still be oversized — trim once at
+		// launch (entries are newest-first, so this keeps the most recent ones).
+		if (self.entries.count > kHWGNotificationHistoryMaxEntries) {
+			NSRange overflow = NSMakeRange(kHWGNotificationHistoryMaxEntries, self.entries.count - kHWGNotificationHistoryMaxEntries);
+			[self.entries removeObjectsInRange:overflow];
+		}
 	}
 	return self;
 }
@@ -109,6 +126,10 @@ NSNotificationName const HWGNotificationHistoryDidChangeNotification = @"HWGNoti
 
 	dispatch_async(self.queue, ^{
 		[self.entries insertObject:entry atIndex:0];
+		if (self.entries.count > kHWGNotificationHistoryMaxEntries) {
+			NSRange overflow = NSMakeRange(kHWGNotificationHistoryMaxEntries, self.entries.count - kHWGNotificationHistoryMaxEntries);
+			[self.entries removeObjectsInRange:overflow];
+		}
 		[self persist];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			[[NSNotificationCenter defaultCenter] postNotificationName:HWGNotificationHistoryDidChangeNotification object:self];

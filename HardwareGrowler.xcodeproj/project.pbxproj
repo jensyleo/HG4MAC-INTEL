@@ -2195,6 +2195,7 @@
 /* Begin XCBuildConfiguration section */
 		362863A62C8F0A5BA61BF5B1 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B1155C1402005D2EA2 /* Release.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2211,6 +2212,7 @@
 		};
 		734DFF1E8CF4F945AFB05A30 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530AF155C1402005D2EA2 /* Debug.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2227,6 +2229,7 @@
 		};
 		71A7E73848EBC08B8F1A66D3 /* Localization */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B0155C1402005D2EA2 /* Localization.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2243,6 +2246,7 @@
 		};
 		05FDF3C2AD73F1CD6A215787 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B1155C1402005D2EA2 /* Release.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2259,6 +2263,7 @@
 		};
 		1329538D8A1C11B5274C79D4 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B1155C1402005D2EA2 /* Release.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2275,6 +2280,7 @@
 		};
 		344038FCBD4733AE635DD554 /* Localization */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B0155C1402005D2EA2 /* Localization.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2291,6 +2297,7 @@
 		};
 		3E8E0E5B37ED5178F42E0F40 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530AF155C1402005D2EA2 /* Debug.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2307,6 +2314,7 @@
 		};
 		822D39F765DB73045492DB3B /* Localization */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B0155C1402005D2EA2 /* Localization.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2323,6 +2331,7 @@
 		};
 		8EF6BEFA3B25CC8E9AC65617 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B1155C1402005D2EA2 /* Release.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2339,6 +2348,7 @@
 		};
 		A544A5A6FAA99AF6995DDDE9 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530AF155C1402005D2EA2 /* Debug.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2355,6 +2365,7 @@
 		};
 		B835A76594A1E10F42E9A154 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530AF155C1402005D2EA2 /* Debug.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2969,6 +2980,7 @@
 		};
 		C596CF12353B7F7777BE18BF /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B1155C1402005D2EA2 /* Release.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -3036,6 +3048,7 @@
 		};
 		DE2D845E04E107E5695220A8 /* Localization */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B0155C1402005D2EA2 /* Localization.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -3052,6 +3065,7 @@
 		};
 		E34F96C6D228B2494E4F8124 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530AF155C1402005D2EA2 /* Debug.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -3068,6 +3082,7 @@
 		};
 		E8CFA5F00DD876B4648F3178 /* Localization */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B0155C1402005D2EA2 /* Localization.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;

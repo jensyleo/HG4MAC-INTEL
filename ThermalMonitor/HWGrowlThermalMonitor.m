@@ -118,7 +118,7 @@ static BOOL HWGThermalBoolForKey(NSString *key, BOOL def) {
 		case NSProcessInfoThermalStateCritical:  name = @"Thermal-Critical"; break;
 		default: return nil;
 	}
-	return [HWGResolveIconNamed(name) TIFFRepresentation];
+	return HWGResolveIconDataNamed(name);
 }
 
 -(void)thermalStateChanged:(NSNotification *)note {

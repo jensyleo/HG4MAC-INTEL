@@ -281,11 +281,19 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 
 		AVCaptureDevice *device = [AVCaptureDevice deviceWithUniqueID:uid];
 		NSString *name = device.localizedName ?: NSLocalizedString(@"Camera", @"");
+		// BUG FIX (05-ago-2026): Started/Stopped used to share ONE identifierString per
+		// device — confirmed live (user testing rapid on/off toggling) that this made
+		// UNUserNotificationCenter treat the second notification as an update to the still-
+		// displayed first one (same request identifier = same notification slot) instead of
+		// a fresh banner, so "Stopped" silently didn't appear until "Started" had already
+		// cleared. Appending the state makes each transition its own request identifier —
+		// connect/disconnect notifications elsewhere intentionally keep a stable per-device
+		// identifier for bounce-detection continuity, this is deliberately different from that.
 		[delegate notifyWithName:@"CameraInUseChanged"
 							 title:nowRunning ? NSLocalizedString(@"Camera Started Being Used", @"") : NSLocalizedString(@"Camera Stopped Being Used", @"")
 						   description:name
 							  icon:[self iconDataInUse:nowRunning]
-					  identifierString:[NSString stringWithFormat:@"HWGrowlCameraInUse-%@", uid]
+					  identifierString:[NSString stringWithFormat:@"HWGrowlCameraInUse-%@-%@", uid, nowRunning ? @"started" : @"stopped"]
 						 contextString:nil
 								plugin:self];
 	}
@@ -304,7 +312,7 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 }
 
 -(NSData *)iconDataInUse:(BOOL)inUse {
-	return [[self cameraIconInUse:inUse] TIFFRepresentation];
+	return HWGResolveIconDataNamed(inUse ? @"CameraMonitor-Icon-InUse" : @"CameraMonitor-Icon");
 }
 
 #pragma mark HWGrowlPluginProtocol

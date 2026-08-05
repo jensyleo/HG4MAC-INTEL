@@ -440,11 +440,19 @@ static BOOL HWGCopyBatteryHealth(NSInteger *outCycleCount, NSInteger *outHealthP
 		return;
 	
 //	NSLog(@"start timer");
+	// BUG FIX (05-ago-2026, memory/perf audit): was `target:self` — the run loop retains the
+	// timer and the timer retains self strongly, while self retains the timer back via this
+	// property, a genuine retain cycle (matches DisplayMonitor's own already-fixed
+	// earlyDetectionTimer, which uses this same weak-self block pattern). -dealloc does
+	// invalidate this timer, but dealloc can only run once the cycle is broken — currently
+	// harmless only because plugin instances live for the whole process lifetime, but fixed
+	// here for consistency and safety if plugin teardown/reload is ever added.
+	__weak typeof(self) weakSelf = self;
 	self.refireTimer = [NSTimer timerWithTimeInterval:[self refireTime] * 60.0f
-															 target:self 
-														  selector:@selector(timerFire:)
-														  userInfo:nil
-															repeats:YES];
+															 repeats:YES
+															   block:^(NSTimer * _Nonnull timer) {
+		[weakSelf powerSourceChanged:YES];
+	}];
 	[[NSRunLoop mainRunLoop] addTimer:refireTimer forMode:NSDefaultRunLoopMode];
     [[NSRunLoop mainRunLoop] addTimer:refireTimer forMode:NSEventTrackingRunLoopMode];
     [[NSRunLoop mainRunLoop] addTimer:refireTimer forMode:NSModalPanelRunLoopMode];
@@ -457,10 +465,6 @@ static BOOL HWGCopyBatteryHealth(NSInteger *outCycleCount, NSInteger *outHealthP
 //	NSLog(@"stop timer");
 	[refireTimer invalidate];
 	self.refireTimer = nil;
-}
-
--(void)timerFire:(NSTimer*)timer {
-	[self powerSourceChanged:YES];
 }
 
 -(void)powerSourceChanged:(BOOL)force {
@@ -854,11 +858,14 @@ static void powerSourceChanged(void *context) {
 	// unless something is actually due) and is what makes the minutes option on "Notify
 	// every" meaningful — an hourly tick would silently round every reminder up to the next
 	// full hour regardless of what the user configured.
+	// BUG FIX (05-ago-2026, memory/perf audit): was `target:self`, same retain-cycle pattern
+	// fixed on refireTimer above — see that comment for the full explanation.
+	__weak typeof(self) weakSelf = self;
 	self.healthCheckTimer = [NSTimer scheduledTimerWithTimeInterval:60.0
-															   target:self
-															 selector:@selector(checkBatteryHealthDue)
-															 userInfo:nil
-															  repeats:YES];
+															 repeats:YES
+															   block:^(NSTimer * _Nonnull timer) {
+		[weakSelf checkBatteryHealthDue];
+	}];
 }
 
 -(void)checkBatteryHealthDue {

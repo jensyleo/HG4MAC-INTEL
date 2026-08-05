@@ -12,6 +12,15 @@ static const CGFloat kHWGIconOverrideCoverage = 0.94; // matches the app's exist
 @interface HWGIconOverrideStore ()
 @property (nonatomic, strong) NSMutableSet<NSString *> *overriddenNames; // in-memory index, mirrors disk
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSImage *> *decodedImageCache; // avoids re-reading/decoding the PNG on every call
+// BUG FIX (05-ago-2026, memory/perf audit): every monitor's -iconData... method called
+// [HWGResolveIconNamed(name) TIFFRepresentation] fresh on EVERY notification — cheap for the
+// low-frequency connect/disconnect events this predates, but Camera/Audio Monitor's "in use"
+// notifications (added this session) can fire many times a minute, re-rendering/re-encoding
+// the same TIFF over and over for no reason (the source NSImage for a given name never
+// changes between overrides). Cached here, invalidated at the same 3 points as
+// decodedImageCache above (set/remove override, reload-from-disk) since those are the only
+// events that can actually change what a name resolves to.
+@property (nonatomic, strong) NSMutableDictionary<NSString *, NSData *> *tiffDataCache;
 @property (nonatomic, strong) dispatch_queue_t queue;
 @end
 
@@ -30,6 +39,7 @@ static const CGFloat kHWGIconOverrideCoverage = 0.94; // matches the app's exist
 		self.queue = dispatch_queue_create("com.jensyleo.hg4mac.iconoverrides", DISPATCH_QUEUE_SERIAL);
 		self.overriddenNames = [[self loadIndexFromDisk] mutableCopy] ?: [NSMutableSet set];
 		self.decodedImageCache = [NSMutableDictionary dictionary];
+		self.tiffDataCache = [NSMutableDictionary dictionary];
 	}
 	return self;
 }
@@ -118,6 +128,7 @@ static const CGFloat kHWGIconOverrideCoverage = 0.94; // matches the app's exist
 		[pngData writeToURL:[self imageFileURLForDefaultName:defaultName] atomically:YES];
 		[self.overriddenNames addObject:defaultName];
 		self.decodedImageCache[defaultName] = normalized;
+		[self.tiffDataCache removeObjectForKey:defaultName];
 		[self persistIndex];
 	});
 }
@@ -128,6 +139,7 @@ static const CGFloat kHWGIconOverrideCoverage = 0.94; // matches the app's exist
 		[[NSFileManager defaultManager] removeItemAtURL:[self imageFileURLForDefaultName:defaultName] error:nil];
 		[self.overriddenNames removeObject:defaultName];
 		[self.decodedImageCache removeObjectForKey:defaultName];
+		[self.tiffDataCache removeObjectForKey:defaultName];
 		[self persistIndex];
 	});
 }
@@ -173,10 +185,30 @@ static const CGFloat kHWGIconOverrideCoverage = 0.94; // matches the app's exist
 	dispatch_sync(self.queue, ^{
 		self.overriddenNames = [[self loadIndexFromDisk] mutableCopy] ?: [NSMutableSet set];
 		[self.decodedImageCache removeAllObjects];
+		[self.tiffDataCache removeAllObjects];
 	});
 }
 
 @end
+
+NSData *HWGResolveIconDataNamed(NSString *defaultName) {
+	if (![defaultName length]) return nil;
+	HWGIconOverrideStore *store = [HWGIconOverrideStore sharedStore];
+	__block NSData *cached = nil;
+	dispatch_sync(store.queue, ^{
+		cached = store.tiffDataCache[defaultName];
+	});
+	if (cached) return cached;
+
+	NSImage *image = HWGResolveIconNamed(defaultName);
+	NSData *tiff = [image TIFFRepresentation];
+	if (tiff) {
+		dispatch_async(store.queue, ^{
+			store.tiffDataCache[defaultName] = tiff;
+		});
+	}
+	return tiff;
+}
 
 NSImage *HWGResolveIconNamed(NSString *defaultName) {
 	if (![defaultName length]) return nil;

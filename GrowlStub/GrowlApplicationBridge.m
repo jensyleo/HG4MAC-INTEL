@@ -36,11 +36,15 @@ static BOOL _useCustomBanner = YES;
 // All access happens on the main queue, so no locking needed.
 static NSMutableArray *_activeBanners = nil;
 
-// FIFO queue of banners waiting for screen room — see the overflow check in
-// `showBannerWindow` and the drain point in `dismiss` below. Holds `void (^)(void)`
-// "reveal" blocks (each captures its own already-built, off-screen NSPanel), not raw
-// notification data — the panel/content view is built once, up front, regardless of
-// whether it can be shown immediately.
+// Parallel to _activeBanners (same indices) — each entry is that banner's own
+// `dismiss` block, so a full stack can force-close the oldest one (last object)
+// to make room for a new arrival instead of making the new one wait (see the
+// eviction logic in `showBannerWindow`).
+static NSMutableArray *_activeBannerDismissBlocks = nil;
+
+// Legacy FIFO queue of banners waiting for screen room. No longer populated
+// (see 05-ago-2026 eviction fix in `showBannerWindow`) — kept only so `dismiss`'s
+// drain code stays harmless dead code instead of needing removal mid-fix.
 static NSMutableArray *_pendingBannerReveals = nil;
 
 // Vertical gap between stacked banners (in screen pixels)
@@ -375,6 +379,7 @@ static void showBannerWindow(NSString *title, NSString *body, id clickContext, N
             NSInteger idx = [_activeBanners indexOfObjectIdenticalTo:strongPanel];
             if (idx != NSNotFound) {
                 [_activeBanners removeObjectAtIndex:idx];
+                [_activeBannerDismissBlocks removeObjectAtIndex:idx];
                 repositionBanners(sf, YES);
             }
 
@@ -429,6 +434,8 @@ static void showBannerWindow(NSString *title, NSString *body, id clickContext, N
         void (^revealBlock)(void) = ^{
             // Register at index 0 — this banner is now the newest (top slot)
             [_activeBanners insertObject:panel atIndex:0];
+            if (!_activeBannerDismissBlocks) _activeBannerDismissBlocks = [[NSMutableArray alloc] init];
+            [_activeBannerDismissBlocks insertObject:[dismiss copy] atIndex:0];
 
             // Show off-screen, then animate everyone to their correct positions.
             // The new banner (index 0) slides in from the right; existing banners
@@ -450,12 +457,23 @@ static void showBannerWindow(NSString *title, NSString *body, id clickContext, N
             });
         };
 
-        if (bannerStackHasRoomFor(CARD_H, sf)) {
-            revealBlock();
-        } else {
-            if (!_pendingBannerReveals) _pendingBannerReveals = [[NSMutableArray alloc] init];
-            [_pendingBannerReveals addObject:[revealBlock copy]];
+        // BUG FIX (05-ago-2026): previously, a full stack queued the new banner in
+        // _pendingBannerReveals and made it wait for an existing banner's normal 5s
+        // lifetime to end — including the on-launch flood of "existing state" banners
+        // every plugin fires at startup, which alone fills the visible stack. Any real,
+        // user-relevant notification arriving in that window (e.g. testing the camera
+        // right after launching the app) sat invisible for up to 5s, reading exactly
+        // like "must wait for the previous one to disappear". Real macOS Notification
+        // Center doesn't make new banners wait either — it evicts. Do the same: if
+        // there's no room, force-dismiss the OLDEST visible banner (last in
+        // _activeBanners, since index 0 is newest) to make room, then reveal
+        // immediately. The oldest banner has already had most of its 5s to be read;
+        // the newest, most relevant one always wins.
+        if (!bannerStackHasRoomFor(CARD_H, sf) && [_activeBanners count]) {
+            void (^evict)(void) = [_activeBannerDismissBlocks lastObject];
+            if (evict) evict();
         }
+        revealBlock();
     });
 }
 

@@ -4,6 +4,58 @@ All notable changes made in this fork on top of
 [`pranav-prakash/HardwareGrowler-NC`](https://github.com/pranav-prakash/HardwareGrowler-NC).
 Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-series)**.
 
+## v1.9.5 — 2026-08-05
+
+### Fixed: 5 plugin bundles never received the app's version number
+- Camera, Audio, Printer, Scanner, and Gamepad Monitor's Xcode build configurations were
+  never linked to the shared xcconfig chain that defines the version number, so their
+  bundles' own `CFBundleShortVersionString`/`CFBundleVersion` silently stayed hardcoded at
+  "1.0"/"1" through every release regardless of the app's actual version. Also the direct
+  cause of v1.9.4's own version string drifting at 1.8.0 since v1.9.0 — three prior releases
+  (v1.9.1-v1.9.3) shipped without noticing the visible version hadn't moved.
+
+## v1.9.4 — 2026-08-05
+
+### Fixed: Camera/Microphone "in use" notifications getting silently suppressed
+- Started/Stopped notifications for the same camera or microphone used to share one
+  notification identifier, so macOS silently replaced the still-visible banner instead of
+  showing a new one — "Stopped" wouldn't appear until "Started" had already cleared on
+  screen. Each transition now gets its own identifier.
+- That same identifier was also being treated as a duplicate by the 3-second anti-spam
+  cache when toggling quickly, silently dropping every other transition. These in-use
+  state transitions are now exempt from that cache — they're already real, distinct
+  events, never accidental repeats.
+- The existing "device is unstable" bounce alert (for hardware flapping on/off repeatedly)
+  used to only count Started or Stopped events separately after the identifier change
+  above, needing 4 of the same direction to trigger instead of 4 toggles total. Fixed to
+  count both directions together again.
+
+### Fixed: notification banners waiting to appear when the screen was full
+- When the on-screen notification stack was full (most commonly right after launch, when
+  every module announces its current state at once), a new notification used to queue and
+  wait for an existing banner's full 5-second lifetime to end before appearing — visible as
+  "nothing shows up until the last one disappears." The newest notification now evicts the
+  oldest visible one immediately instead of waiting.
+
+### Added: cap on Notification History size
+- The optional Notification History list (off by default) was only pruned by age
+  (1-30 days), with no ceiling on entry count. Camera/Microphone "in use" notifications can
+  fire far more often per day than the connect/disconnect events this feature was designed
+  around. Capped at 500 entries, trimmed automatically as new ones are added.
+
+### Improved: memory/performance audit
+- Notification icons (Camera, Microphone, Thermal) are now TIFF-cached per icon name instead
+  of being re-rendered from scratch on every single notification — previously harmless at
+  connect/disconnect frequency, but now more relevant given Camera/Microphone's higher-frequency
+  "in use" notifications.
+- Power Monitor's two repeating timers (auto-refire, battery health check) switched from
+  `target:self` to weak-self blocks, removing an unnecessary retain cycle (matches the
+  pattern Display Monitor already used) — not an active leak today since plugins live for
+  the app's whole run, but now consistent and safe if plugin teardown is ever added.
+- Full audit of every monitor's IOKit/CoreAudio/CoreMediaIO listeners, timers, and caches
+  found no other leaks — all other listener registrations, timers, and caches were already
+  correctly paired/pruned.
+
 ## v1.9.3 — 2026-08-05
 
 ### Fixed: print job notifications never fired

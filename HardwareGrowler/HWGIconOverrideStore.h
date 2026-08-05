@@ -51,4 +51,12 @@ NS_ASSUME_NONNULL_BEGIN
 // itself doesn't resolve to any bundled asset either (mirrors imageNamed: semantics).
 FOUNDATION_EXPORT NSImage * _Nullable HWGResolveIconNamed(NSString *defaultName);
 
+// Same resolution as HWGResolveIconNamed, but returns (and caches) the TIFF representation
+// directly — use this instead of calling `.TIFFRepresentation` on the result of
+// HWGResolveIconNamed yourself in any -iconData... method that runs on every notification
+// (connect/disconnect, and especially Camera/Audio Monitor's higher-frequency "in use"
+// events), since the encode is otherwise redone from scratch on every single call for a name
+// whose resolved image essentially never changes between overrides.
+FOUNDATION_EXPORT NSData * _Nullable HWGResolveIconDataNamed(NSString *defaultName);
+
 NS_ASSUME_NONNULL_END
