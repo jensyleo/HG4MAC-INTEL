@@ -54,10 +54,6 @@
 @interface HWGSystemIconButton : NSButton
 @property (nonatomic, copy) NSString *defaultName;
 @property (nonatomic, strong) NSImage *catalogImage;
-// Only used by the "From URL…" download button, to reach its sibling controls without
-// a second lookup table.
-@property (nonatomic, weak) NSTextField *urlField;
-@property (nonatomic, weak) NSTextField *statusLabel;
 @end
 @implementation HWGSystemIconButton @end
 
@@ -65,11 +61,10 @@
 @property (nonatomic, copy) NSString *defaultName;
 @property (nonatomic, weak) NSImageView *imageView;
 @property (nonatomic, weak) NSButton *resetButton;
-// Persistent anchor for the "Custom" sub-menu popover and its "From URL…" follow-up —
-// unlike buttons living INSIDE a popover's own content view, this one never gets torn
-// down when a popover closes, so it's always safe to re-anchor a new popover to it.
+// Persistent anchor for the "Custom" sub-menu popover — unlike buttons living INSIDE a
+// popover's own content view, this one never gets torn down when a popover closes, so it's
+// always safe to re-anchor a new popover to it.
 @property (nonatomic, weak) NSButton *changeButton;
-@property (nonatomic, weak) NSButton *urlButton;
 @end
 @implementation HWGIconPickerRow @end
 
@@ -159,11 +154,6 @@ static BOOL HWGIconPickerNotifyBoolForKey(NSString *key, BOOL def) {
 		systemIconButton.identifier = defaultName;
 		systemIconButton.toolTip = NSLocalizedString(@"Choose a macOS system icon", @"");
 
-		NSButton *urlButton = [NSButton buttonWithTitle:NSLocalizedString(@"URL", @"") target:self action:@selector(fromURLClicked:)];
-		urlButton.translatesAutoresizingMaskIntoConstraints = NO;
-		urlButton.identifier = defaultName;
-		urlButton.toolTip = NSLocalizedString(@"Download an icon from an image URL", @"");
-
 		NSButton *resetButton = [NSButton buttonWithTitle:NSLocalizedString(@"Reset", @"") target:self action:@selector(resetButtonClicked:)];
 		resetButton.translatesAutoresizingMaskIntoConstraints = NO;
 		resetButton.identifier = defaultName;
@@ -192,14 +182,12 @@ static BOOL HWGIconPickerNotifyBoolForKey(NSString *key, BOOL def) {
 		row.imageView = imageView;
 		row.resetButton = resetButton;
 		row.changeButton = changeButton;
-		row.urlButton = urlButton;
 		[rows addObject:row];
 
 		[self addSubview:imageView];
 		[self addSubview:nameField];
 		[self addSubview:changeButton];
 		[self addSubview:systemIconButton];
-		[self addSubview:urlButton];
 		[self addSubview:resetButton];
 
 		[NSLayoutConstraint activateConstraints:@[
@@ -227,12 +215,8 @@ static BOOL HWGIconPickerNotifyBoolForKey(NSString *key, BOOL def) {
 			[systemIconButton.leadingAnchor constraintEqualToAnchor:changeButton.trailingAnchor constant:8],
 			[systemIconButton.widthAnchor constraintEqualToAnchor:changeButton.widthAnchor],
 
-			[urlButton.centerYAnchor constraintEqualToAnchor:imageView.centerYAnchor],
-			[urlButton.leadingAnchor constraintEqualToAnchor:systemIconButton.trailingAnchor constant:8],
-			[urlButton.widthAnchor constraintEqualToAnchor:changeButton.widthAnchor],
-
 			[resetButton.centerYAnchor constraintEqualToAnchor:imageView.centerYAnchor],
-			[resetButton.leadingAnchor constraintEqualToAnchor:urlButton.trailingAnchor constant:8],
+			[resetButton.leadingAnchor constraintEqualToAnchor:systemIconButton.trailingAnchor constant:8],
 			[resetButton.widthAnchor constraintEqualToAnchor:changeButton.widthAnchor],
 		]];
 
@@ -284,103 +268,6 @@ static BOOL HWGIconPickerNotifyBoolForKey(NSString *key, BOOL def) {
 		row.imageView.image = HWGResolveIconNamed(defaultName);
 		row.resetButton.enabled = YES;
 	}];
-}
-
-// Fase C: paste a direct image URL instead of picking a local file — e.g. a product
-// photo the user already found on a manufacturer's site. Downloads on demand only
-// (no background/automatic lookups, no search — the user supplies the exact URL),
-// decodes, and runs through the same normalization/override pipeline as every other
-// source.
-- (void)fromURLClicked:(NSButton *)sender {
-	NSString *defaultName = sender.identifier;
-	if (![defaultName length]) return;
-	NSButton *anchor = sender; // "URL" is its own persistent row button now, safe to anchor to directly
-
-	NSView *content = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 320, 92)];
-
-	NSTextField *label = [NSTextField labelWithString:NSLocalizedString(@"Image URL:", @"")];
-	label.translatesAutoresizingMaskIntoConstraints = NO;
-
-	NSTextField *urlField = [NSTextField new];
-	urlField.translatesAutoresizingMaskIntoConstraints = NO;
-	urlField.placeholderString = @"https://example.com/icon.png";
-
-	NSTextField *statusLabel = [NSTextField labelWithString:@""];
-	statusLabel.translatesAutoresizingMaskIntoConstraints = NO;
-	statusLabel.font = [NSFont systemFontOfSize:11];
-	statusLabel.textColor = [NSColor secondaryLabelColor];
-
-	HWGSystemIconButton *downloadButton = [HWGSystemIconButton buttonWithTitle:NSLocalizedString(@"Download", @"") target:self action:@selector(urlDownloadClicked:)];
-	downloadButton.defaultName = defaultName;
-	downloadButton.translatesAutoresizingMaskIntoConstraints = NO;
-	downloadButton.urlField = urlField;
-	downloadButton.statusLabel = statusLabel;
-
-	[content addSubview:label];
-	[content addSubview:urlField];
-	[content addSubview:statusLabel];
-	[content addSubview:downloadButton];
-
-	[NSLayoutConstraint activateConstraints:@[
-		[label.topAnchor constraintEqualToAnchor:content.topAnchor constant:12],
-		[label.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:12],
-
-		[urlField.centerYAnchor constraintEqualToAnchor:label.centerYAnchor],
-		[urlField.leadingAnchor constraintEqualToAnchor:label.trailingAnchor constant:8],
-		[urlField.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-12],
-		[urlField.widthAnchor constraintGreaterThanOrEqualToConstant:180],
-
-		[downloadButton.topAnchor constraintEqualToAnchor:urlField.bottomAnchor constant:10],
-		[downloadButton.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-12],
-
-		[statusLabel.centerYAnchor constraintEqualToAnchor:downloadButton.centerYAnchor],
-		[statusLabel.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:12],
-		[statusLabel.trailingAnchor constraintLessThanOrEqualToAnchor:downloadButton.leadingAnchor constant:-8],
-	]];
-
-	NSPopover *popover = [NSPopover new];
-	NSViewController *vc = [NSViewController new];
-	vc.view = content;
-	popover.contentViewController = vc;
-	popover.behavior = NSPopoverBehaviorTransient;
-	self.activeSystemIconPopover = popover;
-	[popover showRelativeToRect:anchor.bounds ofView:anchor preferredEdge:NSMaxYEdge];
-}
-
-- (void)urlDownloadClicked:(HWGSystemIconButton *)sender {
-	NSString *defaultName = sender.defaultName;
-	NSString *urlString = [sender.urlField.stringValue stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-	if (![defaultName length] || ![urlString length]) return;
-
-	NSURL *url = [NSURL URLWithString:urlString];
-	if (!url || !url.scheme || (![url.scheme.lowercaseString isEqualToString:@"https"] && ![url.scheme.lowercaseString isEqualToString:@"http"])) {
-		sender.statusLabel.stringValue = NSLocalizedString(@"Enter a valid http(s) URL.", @"");
-		return;
-	}
-
-	sender.enabled = NO;
-	sender.statusLabel.stringValue = NSLocalizedString(@"Downloading…", @"");
-
-	NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-		dispatch_async(dispatch_get_main_queue(), ^{
-			NSImage *image = data ? [[NSImage alloc] initWithData:data] : nil;
-			if (error || !image) {
-				sender.statusLabel.stringValue = NSLocalizedString(@"Couldn't load an image from that URL.", @"");
-				sender.enabled = YES;
-				return;
-			}
-
-			[[HWGIconOverrideStore sharedStore] setOverrideImage:image forDefaultName:defaultName];
-
-			HWGIconPickerRow *row = [self rowForDefaultName:defaultName];
-			row.imageView.image = HWGResolveIconNamed(defaultName);
-			row.resetButton.enabled = YES;
-
-			[self.activeSystemIconPopover close];
-			self.activeSystemIconPopover = nil;
-		});
-	}];
-	[task resume];
 }
 
 - (void)systemIconButtonClicked:(NSButton *)sender {

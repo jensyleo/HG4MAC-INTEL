@@ -60,6 +60,11 @@
 #define HWG_IP_SHOW_IPV6_KEY         @"HWGIPShowIPv6"
 #define HWG_IP_SHOW_GATEWAY_KEY      @"HWGIPShowGateway"
 #define HWG_IP_SHOW_NONROUTABLE_KEY  @"HWGIPShowNonRoutableTag"
+// #9 (05-ago-2026): colored "old → new" line per interface when its address actually
+// changed — same pattern as Display Monitor's per-field toggles. ON by default; independent
+// per-interface tracking (previousIPv4/6ByInterface) so only the interface that actually
+// changed shows an arrow, not every interface every time any one of them changes.
+#define HWG_IP_SHOW_OLDNEW_KEY       @"HWGIPShowOldNewAddress"
 #define HWG_IP_USE_FRIENDLY_KEY      @"HWGIPUseFriendlyNames"
 
 // F34 #4: VPN connected/disconnected. OFF by default per user request — this is a NEW
@@ -140,6 +145,12 @@ typedef enum {
 // from previousIPCombined (the DISPLAYED text) because F33's per-field toggles can make
 // the displayed text empty even while addresses are genuinely still present.
 @property (nonatomic, assign) BOOL previousHasIPAddresses;
+// #9 (05-ago-2026): per-interface previous address, keyed by BSD name (e.g. "en0") — needed
+// to show "old → new" per interface, since previousIPCombined is the whole DISPLAYED block
+// across every interface and can't tell which specific interface actually changed when
+// there are several (e.g. a USB-Ethernet dock on top of Wi-Fi).
+@property (nonatomic, strong) NSMutableDictionary<NSString *, NSString *> *previousIPv4ByInterface;
+@property (nonatomic, strong) NSMutableDictionary<NSString *, NSString *> *previousIPv6ByInterface;
 
 // P10 (reverted 16-jul-2026): Ethernet (wired) link up/down was briefly detected via
 // NWPathMonitor, but that only reports an interface once it has a USABLE network path
@@ -188,6 +199,8 @@ typedef enum {
 @synthesize networkInterfaceStates;
 @synthesize previousIPCombined;
 @synthesize previousHasIPAddresses;
+@synthesize previousIPv4ByInterface;
+@synthesize previousIPv6ByInterface;
 @synthesize interfaceIsEthernet;
 @synthesize wifiClient;
 @synthesize lastReportedSSID;
@@ -202,6 +215,8 @@ typedef enum {
 -(id)init {
 	if((self = [super init])){
 		self.previousIPCombined = nil;
+		self.previousIPv4ByInterface = [NSMutableDictionary dictionary];
+		self.previousIPv6ByInterface = [NSMutableDictionary dictionary];
 		self.networkInterfaceStates = [NSMutableDictionary dictionary];
 		self.interfaceIsEthernet = [NSMutableDictionary dictionary];
 		self.lastReportedWifiBars = -1;
@@ -1153,19 +1168,31 @@ static int cidrBitsFromNetmaskV4(uint32_t netmask) {
 	BOOL showGateway     = [self boolForKey:HWG_IP_SHOW_GATEWAY_KEY default:YES];
 	BOOL showNonRoutable = [self boolForKey:HWG_IP_SHOW_NONROUTABLE_KEY default:YES];
 	BOOL useFriendly     = [self boolForKey:HWG_IP_USE_FRIENDLY_KEY default:YES];
+	BOOL showOldNew      = [self boolForKey:HWG_IP_SHOW_OLDNEW_KEY default:YES];
 
 	NSString *nonRoutableTag = NSLocalizedString(@"(non-routable)", @"");
 	BOOL anyRoutable = NO;
+
+	// #9: seen-this-pass sets so addresses that disappeared entirely (interface unplugged,
+	// DHCP lease dropped) don't leave a stale "old" value forever haunting a future re-add.
+	NSMutableSet<NSString *> *seenIPv4Interfaces = [NSMutableSet set];
+	NSMutableSet<NSString *> *seenIPv6Interfaces = [NSMutableSet set];
 
 	NSMutableArray *lines = [NSMutableArray array];
 	for (NSDictionary *info in ipv4Info) {
 		BOOL r = [info[@"routable"] boolValue];
 		if (r) anyRoutable = YES;
-		if (!showIPv4) continue;
 		NSString *bsdName = info[@"if"];
+		NSString *currentAddr = info[@"ip"];
+		[seenIPv4Interfaces addObject:bsdName];
+		NSString *previousAddr = self.previousIPv4ByInterface[bsdName];
+		self.previousIPv4ByInterface[bsdName] = currentAddr;
+		if (!showIPv4) continue;
 		NSString *ifname = useFriendly ? (friendly[bsdName] ?: bsdName) : bsdName;
-		[lines addObject:[NSString stringWithFormat:@"%@ — IPv4:\t%@/%@",
-		                  ifname, info[@"ip"], info[@"cidr"]]];
+		NSString *addrPart = (showOldNew && previousAddr && ![previousAddr isEqualToString:currentAddr])
+			? [NSString stringWithFormat:@"%@/%@ → %@/%@", previousAddr, info[@"cidr"], currentAddr, info[@"cidr"]]
+			: [NSString stringWithFormat:@"%@/%@", currentAddr, info[@"cidr"]];
+		[lines addObject:[NSString stringWithFormat:@"%@ — IPv4:\t%@", ifname, addrPart]];
 		if (!r && showNonRoutable) [lines addObject:nonRoutableTag];   // tag on its own line
 		// Each interface's own gateway (not just the system's single primary route) —
 		// so a secondary interface (e.g. a USB-Ethernet dock on a different subnet)
@@ -1173,17 +1200,28 @@ static int cidrBitsFromNetmaskV4(uint32_t netmask) {
 		NSString *gw = ipv4Gateways[bsdName];
 		if (gw && showGateway) [lines addObject:[NSString stringWithFormat:NSLocalizedString(@"Gateway:\t%@", @""), gw]];
 	}
+	[self.previousIPv4ByInterface removeObjectsForKeys:[self.previousIPv4ByInterface.allKeys filteredArrayUsingPredicate:
+		[NSPredicate predicateWithBlock:^BOOL(NSString *key, NSDictionary *bindings) { return ![seenIPv4Interfaces containsObject:key]; }]]];
 	for (NSDictionary *info in ipv6Info) {
 		BOOL r = [info[@"routable"] boolValue];
 		if (r) anyRoutable = YES;
-		if (!showIPv6) continue;
 		NSString *bsdName = info[@"if"];
+		[seenIPv6Interfaces addObject:bsdName];
+		NSString *currentAddr6 = info[@"ip"];
+		NSString *previousAddr6 = self.previousIPv6ByInterface[bsdName];
+		self.previousIPv6ByInterface[bsdName] = currentAddr6;
+		if (!showIPv6) continue;
 		NSString *ifname = useFriendly ? (friendly[bsdName] ?: bsdName) : bsdName;
-		[lines addObject:[NSString stringWithFormat:@"%@ — IPv6:\t%@", ifname, info[@"ip"]]];
+		NSString *addr6Part = (showOldNew && previousAddr6 && ![previousAddr6 isEqualToString:currentAddr6])
+			? [NSString stringWithFormat:@"%@ → %@", previousAddr6, currentAddr6]
+			: currentAddr6;
+		[lines addObject:[NSString stringWithFormat:@"%@ — IPv6:\t%@", ifname, addr6Part]];
 		if (!r && showNonRoutable) [lines addObject:nonRoutableTag];   // tag on its own line
 		NSString *gw = ipv6Gateways[bsdName];
 		if (gw && showGateway) [lines addObject:[NSString stringWithFormat:NSLocalizedString(@"Gateway:\t%@", @""), gw]];
 	}
+	[self.previousIPv6ByInterface removeObjectsForKeys:[self.previousIPv6ByInterface.allKeys filteredArrayUsingPredicate:
+		[NSPredicate predicateWithBlock:^BOOL(NSString *key, NSDictionary *bindings) { return ![seenIPv6Interfaces containsObject:key]; }]]];
 
 	NSString *combined = [lines componentsJoinedByString:@"\n"];
 	BOOL hasAddressesNow = ([ipv4Info count] + [ipv6Info count]) > 0;
@@ -1467,6 +1505,7 @@ static void scCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *in
 		[self checkboxWithKey:HWG_IP_SHOW_GATEWAY_KEY     title:NSLocalizedString(@"Gateway (per interface)", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_IP_SHOW_NONROUTABLE_KEY title:NSLocalizedString(@"\"(non-routable)\" tag on self-assigned addresses", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_IP_USE_FRIENDLY_KEY     title:NSLocalizedString(@"Use friendly interface names (vs. en0/en5…)", @"") defaultOn:YES],
+		[self checkboxWithKey:HWG_IP_SHOW_OLDNEW_KEY      title:NSLocalizedString(@"Show old → new address when it changes", @"") defaultOn:YES],
 	] inView:ipTab belowView:ipHeader gap:10];
 
 	NSTabViewItem *ipItem = [[NSTabViewItem alloc] initWithIdentifier:@"ip"];

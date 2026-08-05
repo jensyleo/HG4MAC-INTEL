@@ -21,6 +21,9 @@
 #define HWG_POWER_SHOW_STATE_KEY      @"HWGPowerShowChargeState"
 #define HWG_POWER_SHOW_PERCENTAGE_KEY @"HWGPowerShowPercentage"
 #define HWG_POWER_SHOW_TIME_KEY       @"HWGPowerShowTimeRemaining"
+// #9-adjacent (05-ago-2026): "Source:\told → new" line, same optional-field pattern as
+// Display Monitor's per-field toggles — ON by default.
+#define HWG_POWER_SHOW_SOURCE_CHANGE_KEY @"HWGPowerShowSourceChangeArrow"
 
 // #8 (F34 candidate): battery health/cycle count, reported as a SEPARATE periodic
 // notification (not tied to the minutes-based status refire above) since it changes on
@@ -606,7 +609,7 @@ static BOOL HWGCopyBatteryHealth(NSInteger *outCycleCount, NSInteger *outHealthP
 				// very first check (lastPowerSource is still Unknown then, so there's no real
 				// "old" to show) and on refires where the type didn't change (changedType
 				// false), which would otherwise repeat "AC Power → AC Power" every refire.
-				if (changedType && lastPowerSource != HGUnknownPower) {
+				if (changedType && lastPowerSource != HGUnknownPower && HWGPowerBoolForKey(HWG_POWER_SHOW_SOURCE_CHANGE_KEY, YES)) {
 					NSString *sourceLine = [NSString stringWithFormat:NSLocalizedString(@"Source:\t%@ → %@", @""),
 						[self localizedNameForSource:lastPowerSource], localizedSource];
 					description = [description length] ? [NSString stringWithFormat:@"%@\n%@", sourceLine, description] : sourceLine;
@@ -1031,6 +1034,7 @@ static void powerSourceChanged(void *context) {
 		[self checkboxWithKey:HWG_POWER_SHOW_STATE_KEY      title:NSLocalizedString(@"Charge state (Charging/Finishing/Charged)", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_POWER_SHOW_PERCENTAGE_KEY title:NSLocalizedString(@"Battery percentage", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_POWER_SHOW_TIME_KEY       title:NSLocalizedString(@"Time remaining / time to charge", @"") defaultOn:YES],
+		[self checkboxWithKey:HWG_POWER_SHOW_SOURCE_CHANGE_KEY title:NSLocalizedString(@"Show old → new power source when it changes", @"") defaultOn:YES],
 		// F34 #1: OFF by default — new behavior, not a visibility toggle on an existing notice.
 		[self checkboxWithKey:HWG_POWER_LOWPOWER_NOTIFY_KEY title:NSLocalizedString(@"Notify when Low Power Mode is turned on/off", @"") defaultOn:NO],
 	];

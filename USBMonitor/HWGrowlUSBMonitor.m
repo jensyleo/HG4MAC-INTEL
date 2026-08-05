@@ -254,6 +254,12 @@ static const uint8_t kHWGUSBHubDeviceClass = 9;
 		case 0x03: return @"USB-TypeHID";             // HID (Keyboard/Mouse) — HID doesn't
 		                                               // distinguish the two without reading
 		                                               // the Report Descriptor.
+		// BUG FIX (05-ago-2026, icon coverage audit): Mass Storage (flash drives, external
+		// HDDs, card readers) is one of the most common USB class codes and had a text label
+		// ("Mass Storage", see -usbClassNameForClassCode:) but no icon — fell to the generic
+		// USB-On. Reuses Volume Monitor's existing "Device-USBDrive" asset (same real-world
+		// meaning: a USB storage device) instead of designing new art.
+		case 0x08: return @"Device-USBDrive";         // Mass Storage
 		case 0x06: return @"USB-TypeScanner";         // Image (most standalone scanners/MFPs
 		                                               // without a printer function report this)
 		case 0x07: return @"USB-TypePrinter";         // Printer
@@ -276,6 +282,7 @@ static const uint8_t kHWGUSBHubDeviceClass = 9;
 	switch (classCode) {
 		case 0x01: return @"Audio";
 		case 0x03: return @"HID";
+		case 0x08: return @"MassStorage";
 		case 0x06: return @"Scanner";
 		case 0x07: return @"Printer";
 		case 0x0B: return @"SmartCard";
@@ -557,6 +564,7 @@ static void usbDeviceRemoved(void *refCon, io_iterator_t iterator) {
 	HWGIconPickerView *iconPicker = [[HWGIconPickerView alloc] initWithIconSpecs:@[
 		@[@"Module Icon (Sidebar)", @"HWGPrefsUSB-Module"],
 		@[@"Hub", @"USB-TypeHub", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Hub"]],
+		@[@"Mass Storage", @"Device-USBDrive", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"MassStorage"]],
 		@[@"Keyboard/Mouse", @"USB-TypeHID", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"HID"]],
 		@[@"Webcam", @"USB-TypeWebcam", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Webcam"]],
 		@[@"Scanner", @"USB-TypeScanner", [HWG_USB_NOTIFY_KEY_PREFIX stringByAppendingString:@"Scanner"]],

@@ -114,9 +114,20 @@ static NSString *HWGDeviceCategoryFromInfo(NSString *protocol, NSString *mediaNa
 		diskTokens  = @[@"hdd", @"ssd", @"hard disk", @"hard drive", @"external"];
 		driveTokens = @[@"flash", @"thumb", @"pen drive", @"usb drive", @"mass storage"];
 	});
+	// BUG FIX (05-ago-2026): the size threshold used to be checked BEFORE driveTokens, so a
+	// modern high-capacity pendrive (1TB+ flash drives — SanDisk Extreme, Kingston, etc. — are
+	// real, common products now) whose name/model explicitly says "flash"/"thumb"/"usb drive"
+	// never got the chance to match that explicit signal: its size alone tripped the
+	// ExternalDisk threshold first, misclassifying an actual pocket flash drive as an external
+	// disk enclosure. An explicit name/model token is always a stronger, more direct signal
+	// than a size guess — checking driveTokens first means a named pendrive is classified
+	// correctly regardless of capacity, and the size threshold now only ever applies as a
+	// last resort for large, anonymously-named USB storage with no token at all (still a
+	// reasonable guess there: unnamed 400GB+ drives remain far more often external HDDs/SSDs
+	// than pocket flash drives).
 	for (NSString *token in diskTokens)  { if ([combined rangeOfString:token].location != NSNotFound) return @"ExternalDisk"; }
-	if (mediaSizeBytes >= HWG_EXTERNAL_DISK_SIZE_THRESHOLD_BYTES) return @"ExternalDisk";
 	for (NSString *token in driveTokens) { if ([combined rangeOfString:token].location != NSNotFound) return @"USBDrive"; }
+	if (mediaSizeBytes >= HWG_EXTERNAL_DISK_SIZE_THRESHOLD_BYTES) return @"ExternalDisk";
 
 	// REVERTED (23-jul-2026): a fallback was added here ("plain USB storage under the
 	// ExternalDisk threshold that isn't a card reader is essentially always a pendrive")

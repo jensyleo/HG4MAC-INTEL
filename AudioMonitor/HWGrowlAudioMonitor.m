@@ -33,6 +33,10 @@
 #define HWG_AUDIO_SHOW_TRANSPORT_KEY         @"HWGAudioShowTransport"
 #define HWG_AUDIO_SHOW_CHANNELS_KEY          @"HWGAudioShowChannels"
 #define HWG_AUDIO_SHOW_SAMPLERATE_KEY        @"HWGAudioShowSampleRate"
+// #9-adjacent (05-ago-2026): "Label:\told → new" line for default output/input device
+// changes, same optional-field pattern as Display Monitor's per-field toggles — ON by
+// default. extraInfoForDeviceID (transport/channels/sample rate) stays unconditional.
+#define HWG_AUDIO_SHOW_DEVICE_CHANGE_ARROW_KEY @"HWGAudioShowDeviceChangeArrow"
 #define HWG_AUDIO_NOTIFY_DEFAULT_OUTPUT_KEY  @"HWGAudioNotifyDefaultOutput"
 #define HWG_AUDIO_NOTIFY_DEFAULT_INPUT_KEY   @"HWGAudioNotifyDefaultInput"
 #define HWG_AUDIO_NOTIFY_DEVICE_CONNECT_KEY  @"HWGAudioNotifyDeviceConnect"
@@ -95,8 +99,23 @@ static BOOL HWGAudioBoolForKey(NSString *key, BOOL def) {
 // changes only touches IDs known to actually have one registered.
 @property (nonatomic, strong) NSMutableSet<NSNumber *> *deviceIDsWithMicInUseListener;
 // Device IDs currently observed as "running somewhere" (i.e. actively in use by some app) —
-// diffed on every callback to fire Started/Stopped only on the actual transition.
+// updated on every raw callback, independent of the debounce below, so it always reflects
+// the true current hardware state.
 @property (nonatomic, strong) NSMutableSet<NSNumber *> *runningMicDeviceIDs;
+// BUG FIX (05-ago-2026): confirmed live (user testing MS Teams call start/end, screenshots)
+// that starting or ending a call fires 3 raw transitions in under half a second — e.g.
+// Stopped -> Started -> Stopped when STARTING a call — because Teams' own audio session
+// setup/teardown briefly cycles CoreAudio's input capture itself, not because the user
+// touched the mic multiple times. Confirmed independently the same session with a standalone
+// diagnostic tool (see conversation) showing the OS really does report these as 3 distinct,
+// genuine kAudioDevicePropertyDeviceIsRunningSomewhere transitions, not a coalescing artifact
+// on our end — so firing a notification for each one is technically accurate per-event but
+// produces a misleading, self-contradicting sequence of banners (ending on "Stopped" right
+// after the user just started a call). `lastNotifiedMicDeviceIDs` is the debounced baseline:
+// diffed against the LATEST state once it's held stable for `kMicDebounceInterval`, collapsing
+// a whole burst into one notification for whatever state actually stuck.
+@property (nonatomic, strong) NSMutableSet<NSNumber *> *lastNotifiedMicDeviceIDs;
+@property (nonatomic, strong) dispatch_block_t pendingMicNotifyBlock;
 
 @end
 
@@ -119,6 +138,10 @@ static BOOL HWGAudioBoolForKey(NSString *key, BOOL def) {
 @synthesize micInUseListenerBlock;
 @synthesize deviceIDsWithMicInUseListener;
 @synthesize runningMicDeviceIDs;
+@synthesize lastNotifiedMicDeviceIDs;
+@synthesize pendingMicNotifyBlock;
+
+static const NSTimeInterval kMicDebounceInterval = 1.0;
 
 static AudioObjectPropertyAddress kRunningSomewhereAddress = {
 	kAudioDevicePropertyDeviceIsRunningSomewhere, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain
@@ -142,6 +165,7 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		reportedDeviceIDs = [NSMutableSet set];
 		deviceIDsWithMicInUseListener = [NSMutableSet set];
 		runningMicDeviceIDs = [NSMutableSet set];
+		lastNotifiedMicDeviceIDs = [NSMutableSet set];
 
 		// Baseline silently at launch — like every other monitor — so the first real
 		// connect/disconnect/default-change after this point is the first thing notified.
@@ -182,6 +206,7 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 }
 
 -(void)dealloc {
+	if (pendingMicNotifyBlock) dispatch_block_cancel(pendingMicNotifyBlock);
 	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDevicesAddress, dispatch_get_main_queue(), devicesListenerBlock);
 	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDefaultOutputAddress, dispatch_get_main_queue(), defaultOutputListenerBlock);
 	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDefaultInputAddress, dispatch_get_main_queue(), defaultInputListenerBlock);
@@ -477,41 +502,60 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 	for (NSNumber *deviceID in self.deviceIDsWithMicInUseListener) {
 		if ([self isDeviceRunningSomewhere:[deviceID unsignedIntValue]]) [currentlyRunning addObject:deviceID];
 	}
+	self.runningMicDeviceIDs = currentlyRunning;
 
-	if (shouldNotify) {
-		NSMutableSet<NSNumber *> *startedUsing = [currentlyRunning mutableCopy];
-		[startedUsing minusSet:self.runningMicDeviceIDs];
-		NSMutableSet<NSNumber *> *stoppedUsing = [self.runningMicDeviceIDs mutableCopy];
-		[stoppedUsing minusSet:currentlyRunning];
-
-		// BUG FIX (05-ago-2026): same systemic bug as Camera Monitor's in-use notifications
-		// (see its doc comment for the full mechanism) — Started/Stopped sharing ONE
-		// identifierString per device made UNUserNotificationCenter silently swap the second
-		// notification into the still-displayed first one instead of showing a fresh banner.
-		// Appending the state gives each transition its own request identifier.
-		for (NSNumber *deviceID in startedUsing) {
-			NSString *name = self.deviceNames[deviceID] ?: [self nameForDeviceID:[deviceID unsignedIntValue]] ?: NSLocalizedString(@"Unknown Device", @"");
-			[delegate notifyWithName:@"AudioMicInUse"
-									 title:NSLocalizedString(@"Microphone Started Being Used", @"")
-							 description:name
-									  icon:[self iconDataForMicInUse:YES]
-					  identifierString:[NSString stringWithFormat:@"HWGrowlAudioMicInUse-%@-started", deviceID]
-						  contextString:nil
-									plugin:self];
-		}
-		for (NSNumber *deviceID in stoppedUsing) {
-			NSString *name = self.deviceNames[deviceID] ?: [self nameForDeviceID:[deviceID unsignedIntValue]] ?: NSLocalizedString(@"Unknown Device", @"");
-			[delegate notifyWithName:@"AudioMicInUse"
-									 title:NSLocalizedString(@"Microphone Stopped Being Used", @"")
-							 description:name
-									  icon:[self iconDataForMicInUse:NO]
-					  identifierString:[NSString stringWithFormat:@"HWGrowlAudioMicInUse-%@-stopped", deviceID]
-						  contextString:nil
-									plugin:self];
-		}
+	if (!shouldNotify) {
+		// Silent baseline (launch, or checkbox just turned on) — nothing pending to debounce,
+		// and this IS the notified baseline going forward.
+		self.lastNotifiedMicDeviceIDs = currentlyRunning;
+		return;
 	}
 
-	self.runningMicDeviceIDs = currentlyRunning;
+	// Cancel any debounce still waiting from an earlier raw transition in this same burst —
+	// only the LATEST scheduled check survives, so a burst of N raw callbacks only ever
+	// results in one settle check, `kMicDebounceInterval` after the last one of them.
+	if (self.pendingMicNotifyBlock) {
+		dispatch_block_cancel(self.pendingMicNotifyBlock);
+	}
+
+	__weak typeof(self) weakSelf = self;
+	dispatch_block_t block = dispatch_block_create(0, ^{
+		typeof(self) strongSelf = weakSelf;
+		if (!strongSelf) return;
+
+		NSSet<NSNumber *> *settled = strongSelf.runningMicDeviceIDs;
+		NSMutableSet<NSNumber *> *startedUsing = [settled mutableCopy];
+		[startedUsing minusSet:strongSelf.lastNotifiedMicDeviceIDs];
+		NSMutableSet<NSNumber *> *stoppedUsing = [strongSelf.lastNotifiedMicDeviceIDs mutableCopy];
+		[stoppedUsing minusSet:settled];
+
+		for (NSNumber *deviceID in startedUsing) {
+			NSString *name = strongSelf.deviceNames[deviceID] ?: [strongSelf nameForDeviceID:[deviceID unsignedIntValue]] ?: NSLocalizedString(@"Unknown Device", @"");
+			[strongSelf.delegate notifyWithName:@"AudioMicInUse"
+										 title:NSLocalizedString(@"Microphone Started Being Used", @"")
+								 description:name
+										  icon:[strongSelf iconDataForMicInUse:YES]
+							  identifierString:[NSString stringWithFormat:@"HWGrowlAudioMicInUse-%@-started", deviceID]
+								  contextString:nil
+											plugin:strongSelf];
+		}
+		for (NSNumber *deviceID in stoppedUsing) {
+			NSString *name = strongSelf.deviceNames[deviceID] ?: [strongSelf nameForDeviceID:[deviceID unsignedIntValue]] ?: NSLocalizedString(@"Unknown Device", @"");
+			[strongSelf.delegate notifyWithName:@"AudioMicInUse"
+										 title:NSLocalizedString(@"Microphone Stopped Being Used", @"")
+								 description:name
+										  icon:[strongSelf iconDataForMicInUse:NO]
+							  identifierString:[NSString stringWithFormat:@"HWGrowlAudioMicInUse-%@-stopped", deviceID]
+								  contextString:nil
+											plugin:strongSelf];
+		}
+
+		strongSelf.lastNotifiedMicDeviceIDs = [settled mutableCopy];
+		strongSelf.pendingMicNotifyBlock = nil;
+	});
+	self.pendingMicNotifyBlock = block;
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kMicDebounceInterval * NSEC_PER_SEC)),
+				   dispatch_get_main_queue(), block);
 }
 
 // BUG FIX (04-ago-2026): originally reused the speaker Connected/Disconnected artwork here —
@@ -538,11 +582,14 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 									icon:(NSString *)symbolName {
 	if (!HWGAudioBoolForKey(notifyKey, YES)) return;
 
-	NSString *oldName = [self nameForDeviceID:oldID] ?: NSLocalizedString(@"None", @"");
-	NSString *newName = [self nameForDeviceID:newID] ?: NSLocalizedString(@"None", @"");
-	NSString *arrowLine = [NSString stringWithFormat:@"%@:\t%@ → %@", label, oldName, newName];
 	NSString *extraInfo = [self extraInfoForDeviceID:newID];
-	NSString *description = extraInfo ? [NSString stringWithFormat:@"%@\n%@", arrowLine, extraInfo] : arrowLine;
+	NSString *description = extraInfo ?: @"";
+	if (HWGAudioBoolForKey(HWG_AUDIO_SHOW_DEVICE_CHANGE_ARROW_KEY, YES)) {
+		NSString *oldName = [self nameForDeviceID:oldID] ?: NSLocalizedString(@"None", @"");
+		NSString *newName = [self nameForDeviceID:newID] ?: NSLocalizedString(@"None", @"");
+		NSString *arrowLine = [NSString stringWithFormat:@"%@:\t%@ → %@", label, oldName, newName];
+		description = [description length] ? [NSString stringWithFormat:@"%@\n%@", arrowLine, description] : arrowLine;
+	}
 
 	[delegate notifyWithName:noteName
 						 title:title
@@ -641,6 +688,7 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		[self checkboxWithKey:HWG_AUDIO_SHOW_TRANSPORT_KEY        title:NSLocalizedString(@"Transport type (USB/Bluetooth/HDMI/etc.)", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_AUDIO_SHOW_CHANNELS_KEY         title:NSLocalizedString(@"Channel count", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_AUDIO_SHOW_SAMPLERATE_KEY       title:NSLocalizedString(@"Sample rate", @"") defaultOn:YES],
+		[self checkboxWithKey:HWG_AUDIO_SHOW_DEVICE_CHANGE_ARROW_KEY title:NSLocalizedString(@"Show old → new device when the default changes", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_AUDIO_NOTIFY_DEFAULT_OUTPUT_KEY title:NSLocalizedString(@"Notify on default output change", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_AUDIO_NOTIFY_DEFAULT_INPUT_KEY  title:NSLocalizedString(@"Notify on default input change", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_AUDIO_NOTIFY_DEVICE_CONNECT_KEY title:NSLocalizedString(@"Notify on device connect/disconnect (HDMI/Thunderbolt/Built-in — USB and Bluetooth already covered by their own monitors)", @"") defaultOn:YES],

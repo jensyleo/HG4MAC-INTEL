@@ -4,6 +4,80 @@ All notable changes made in this fork on top of
 [`pranav-prakash/HardwareGrowler-NC`](https://github.com/pranav-prakash/HardwareGrowler-NC).
 Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-series)**.
 
+## v1.10.0 — 2026-08-05
+
+### Added: scan job start/finish notifications (experimental)
+- Scanner Monitor can now notify when a network scanner starts and finishes a scan job, by
+  polling the device's eSCL (AirScan) status endpoint — checkbox "Notify when a scan
+  starts/finishes (experimental)", **off by default**. This has not yet been verified against
+  a real network scanner: eSCL firmware compliance is known to vary by manufacturer, and some
+  devices may only surface job completion via a separate per-job resource rather than the
+  general status endpoint this polls.
+
+## v1.9.9 — 2026-08-05
+
+### Added: IP address old → new + more "old → new" toggles
+- Network Monitor's "IP Addresses Updated" notification now shows the previous address next
+  to the new one per interface (e.g. "en0 — IPv4: 192.168.1.5/24 → 192.168.1.12/24") instead
+  of only the current value — tracked per interface, so only the interface that actually
+  changed shows an arrow when there are several (e.g. a USB-Ethernet dock alongside Wi-Fi).
+  New checkbox "Show old → new address when it changes", on by default.
+- Added the same optional "old → new" toggle, matching Display Monitor's existing per-field
+  pattern, to two other places that already showed this but couldn't be turned off
+  independently: Power Monitor's power-source-changed line, and Audio Monitor's
+  default-device-changed line. Both on by default.
+- Deliberately NOT added to Thermal Monitor or Printer Monitor's "default printer changed" —
+  in both, the old → new line IS the entire content of the notification; a toggle to hide it
+  would only ever produce an empty, pointless notification.
+
+## v1.9.8 — 2026-08-05
+
+### Removed: "URL" icon download button
+- The icon customization picker (14 monitors) no longer offers downloading an icon from a
+  pasted image URL. "Custom" (local file) and "System" (macOS's own icon set) remain — icon
+  customization is now local-file-only, with no network path in the icon picker at all.
+
+## v1.9.7 — 2026-08-05
+
+### Fixed: modern high-capacity flash drives misclassified as external disks
+- Volume Monitor's device-type icon guess checked the 400GB size threshold before checking
+  for explicit "flash"/"thumb"/"usb drive" naming tokens, so a real, modern pendrive (1TB+
+  flash drives are common products now — SanDisk Extreme, Kingston, etc.) that explicitly
+  identifies itself as a flash drive got classified as an external disk anyway, purely by
+  size. Explicit naming now takes priority — the size threshold only applies as a last
+  resort for large, anonymously-named storage with no identifying token at all.
+
+### Fixed: contradictory microphone notifications around MS Teams calls
+- Starting or ending a Teams call reliably produced 3 rapid, real "Microphone
+  Started/Stopped Being Used" notifications within under a second — e.g. Stopped → Started →
+  Stopped when the user just STARTED a call, ending on the visually wrong state (looked like
+  the mic ended up unused right as the call began). Confirmed live (user screenshots) and
+  independently with a standalone diagnostic tool built during this investigation: macOS
+  genuinely reports these as 3 distinct `kAudioDevicePropertyDeviceIsRunningSomewhere`
+  transitions — this is Teams' own audio session briefly cycling its input capture during
+  call setup/teardown, not the user touching the microphone multiple times, and not a
+  coalescing bug on this app's side.
+- Notifying every one of those raw transitions was individually accurate but produced a
+  confusing, self-contradicting sequence of banners. Fixed with a 1-second debounce: after
+  any mic state change, wait 1s for the state to settle (canceling and restarting the wait if
+  another change arrives first), then notify only the net difference between the last
+  state actually announced and the state that stuck. A burst that returns to its starting
+  state (e.g. off → on → off within the window) now correctly produces no notification at
+  all, since nothing really changed from the user's perspective. A single, isolated toggle
+  still notifies exactly as before — the 1s wait only ever matters when a second change
+  arrives inside that window.
+
+## v1.9.6 — 2026-08-05
+
+### Added: USB Mass Storage device icon
+- USB Monitor's device-type classification already labeled Mass Storage devices (flash
+  drives, external HDDs, USB card readers) correctly in text, but had no icon for the class —
+  it fell back to the generic connected icon. Now uses the same drive icon Volume Monitor
+  already shows for these devices.
+- Full audit of connect-time icon coverage across Bluetooth/Thunderbolt/USB's device-type
+  classifiers: Thunderbolt and Bluetooth found to already have complete, correct coverage for
+  every class with an unambiguous real-world meaning — no further gaps.
+
 ## v1.9.5 — 2026-08-05
 
 ### Fixed: 5 plugin bundles never received the app's version number
