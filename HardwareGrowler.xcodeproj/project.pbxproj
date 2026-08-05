@@ -81,6 +81,8 @@
 		BCA26BBA1555BB1B009C5ABC /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BCA26BB81555BB1B009C5ABC /* InfoPlist.strings */; };
 		BCAA1764155784C800D9E4ED /* HWGrowlPowerMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = BCAA1763155784C800D9E4ED /* HWGrowlPowerMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		BCAA1778155804A000D9E4ED /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC523C3515556BE500548427 /* IOKit.framework */; };
+		BCA26BFF15558600009C5ABD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC523C3515556BE500548427 /* IOKit.framework */; };
+		BCECA3FF155322D200F49281 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC523C3515556BE500548427 /* IOKit.framework */; };
 		BCB805EC155153330088C69A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCB805EB155153330088C69A /* Cocoa.framework */; };
 		BCB805F6155153330088C69A /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BCB805F4155153330088C69A /* InfoPlist.strings */; };
 		BCB805F8155153330088C69A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = BCB805F7155153330088C69A /* main.m */; };
@@ -125,6 +127,7 @@
 		C0FE0039C0FE0039C0FE0039 /* HWGrowlThermalMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = C0FE0038C0FE0038C0FE0038 /* HWGrowlThermalMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		C0FE003AC0FE003AC0FE003A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCB805EB155153330088C69A /* Cocoa.framework */; };
 		C43B44AC844B6147B6EC872A /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3229F2ABB9D0DAB3CCBC2B5D /* AVFoundation.framework */; };
+		A1D10004A1D10004A1D10004 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3229F2ABB9D0DAB3CCBC2B5D /* AVFoundation.framework */; };
 		C43E192713E8AD11A2EEF0F7 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		C5A5C88DF3EE67FD47654650 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		C6B4F5FE121048C29792E56C /* HWGrowlGamepadMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 87993853320360C61A0302FA /* HWGrowlGamepadMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
@@ -588,6 +591,7 @@
 			files = (
 				B1AC66D5EF7508BCDEB1C532 /* Cocoa.framework in Frameworks */,
 				E8665A3D257B6D969E4C04F2 /* CoreAudio.framework in Frameworks */,
+				A1D10004A1D10004A1D10004 /* AVFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -615,6 +619,7 @@
 			files = (
 				BCA26B5E155585C0009C5ABC /* Cocoa.framework in Frameworks */,
 				BCA26B7215558853009C5ABC /* IOBluetooth.framework in Frameworks */,
+				BCA26BFF15558600009C5ABD /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -665,6 +670,7 @@
 			files = (
 				BCECA38D155322D200F49280 /* Cocoa.framework in Frameworks */,
 				C0FE0007C0FE0007C0FE0007 /* DiskArbitration.framework in Frameworks */,
+				BCECA3FF155322D200F49281 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

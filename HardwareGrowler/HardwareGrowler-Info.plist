@@ -55,6 +55,8 @@
 	<string>${COPYRIGHT}</string>
 	<key>NSLocationUsageDescription</key>
 	<string>HardwareGrowler uses your location only to read the name (SSID) of the Wi-Fi network you connect to, so it can show it in notifications. Your location is never stored or shared.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>HardwareGrowler detects when a microphone starts or stops being actively used by any app, so it can show it in notifications. Audio content is never captured, recorded, or transmitted.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>HardwareGrowler uses your location only to read the name (SSID) of the Wi-Fi network you connect to, so it can show it in notifications. Your location is never stored or shared.</string>
 	<key>NSMainNibFile</key>

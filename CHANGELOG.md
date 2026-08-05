@@ -4,6 +4,56 @@ All notable changes made in this fork on top of
 [`pranav-prakash/HardwareGrowler-NC`](https://github.com/pranav-prakash/HardwareGrowler-NC).
 Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-series)**.
 
+## v1.9.2 — 2026-08-04
+
+### New: USB device speed in notifications
+- USB Monitor's "Speed" field (behind the existing "USB speed / generation" checkbox) now
+  covers USB 3.2 Gen 2x2 (20 Gb/s) — the one connection speed code that was previously falling
+  through to no label.
+
+### New: Bluetooth accessory battery level (Apple devices)
+- Bluetooth Monitor can now show the battery level of Apple accessories (AirPods, Magic
+  Mouse/Keyboard/Trackpad) in the connect notification — checkbox "Battery level (Apple
+  accessories)", on by default.
+- Reads two different sources depending on device type: AirPods/Beats-style devices report
+  through undocumented `IOBluetoothDevice` selectors; Magic Mouse/Keyboard/Trackpad instead
+  report through a separate IOKit registry node, matched by Bluetooth address. Both paths are
+  combined so the feature works across all of these devices without the user needing to know
+  which one applies.
+
+### New: internal drive health percentage
+- Volume Monitor can now show a real health percentage for internal disks when they mount —
+  checkbox "Drive health % (internal disks)", on by default. Uses Apple's public NVMe SMART
+  interface to read the drive's actual wear-level log page (not a synthesized estimate).
+  Scoped to internal storage only.
+
+### New: print job start/finish notifications
+- Printer Monitor can now notify when a print job starts and when it finishes or is canceled —
+  checkbox "Notify when a print job starts/finishes", off by default. Polls the same interval
+  already used for printer list changes, so there's no additional background overhead.
+
+### New: microphone-in-use notifications
+- Audio Monitor can now notify when any connected microphone starts or stops being actively
+  used by any app — checkbox "Notify when a microphone starts/stops being used", on by
+  default. Requests Microphone access the first time this is enabled (used only to observe
+  activity state — no audio is ever captured, recorded, or transmitted).
+
+### Fixed: VPN notification icon
+- VPN connect/disconnect notifications now use a dedicated shield icon instead of the generic
+  network icon.
+
+### Fixed: History panel could lag behind real notifications
+- The notification History list (Preferences → History) previously only refreshed when
+  switching to that tab — a notification firing while a different tab was showing (or the
+  window closed) wouldn't appear in the list until the next time History was opened, however
+  many events had piled up by then. It now refreshes live while the History tab is visible.
+
+### Fixed: Printer Monitor's background polling could silently do nothing
+- Enabling only one of the printer-error/default-changed/job-status checkboxes (without also
+  enabling the original connect/disconnect notification) previously never started the polling
+  timer those features depend on, so they'd do nothing. Any one of these checkboxes now starts
+  it correctly.
+
 ## v1.8.0 — 2026-07-29
 
 ### New: Scanner Monitor (13th monitor) — network scanner detection

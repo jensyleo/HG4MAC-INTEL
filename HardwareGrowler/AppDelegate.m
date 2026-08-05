@@ -521,6 +521,16 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 	}
 	[self selectTabIndex:0];
 	[self initTitles];
+
+	// BUG FIX (04-ago-2026): the History table previously only reloaded on tab-switch
+	// (-selectTabIndex:) — a notification firing while a different Preferences tab was
+	// showing (or the window closed) never updated the list until the user next clicked
+	// into History, however many events had piled up by then. Now reloads live whenever
+	// the History tab happens to already be the one showing.
+	[[NSNotificationCenter defaultCenter] addObserver:self
+											  selector:@selector(historyDidChange:)
+												  name:HWGNotificationHistoryDidChangeNotification
+												object:nil];
 		
 	[[NSUserDefaultsController sharedUserDefaultsController] addObserver:self
 																				 forKeyPath:@"values.Visibility"
@@ -1322,6 +1332,18 @@ static NSSet<NSString*> *HWGMinimalPluginBundleIdentifiers(void) {
 		[[HWGNotificationHistoryStore sharedStore] clearAll];
 		[self refreshHistoryTable];
 	}
+}
+
+// BUG FIX (04-ago-2026): live counterpart to the tab-switch-only refresh in -selectTabIndex:.
+// Only reloads if History is the CURRENTLY VISIBLE tab — reloading (and re-pruning) in the
+// background for a tab nobody's looking at would just be wasted work, same reasoning already
+// documented on -selectTabIndex: for why it doesn't try to keep History live-synced while
+// hidden. `historyTableView` itself is nil (weak, no window ever built one) if the History
+// tab's view was never constructed at all in this launch — guard on that too.
+- (void)historyDidChange:(NSNotification *)note {
+	if (!historyTableView) return;
+	if ([tabView indexOfTabViewItem:tabView.selectedTabViewItem] != 2) return;
+	[self refreshHistoryTable];
 }
 
 - (void)refreshHistoryTable {

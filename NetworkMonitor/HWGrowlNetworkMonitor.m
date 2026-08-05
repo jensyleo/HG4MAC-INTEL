@@ -1109,8 +1109,12 @@ static int cidrBitsFromNetmaskV4(uint32_t netmask) {
 	NSMutableSet<NSString*> *newlyDisconnected = [self.activeVPNInterfaceNames mutableCopy];
 	[newlyDisconnected minusSet:currentNames];
 
-	NSData *onIcon  = [HWGResolveIconNamed(@"Network-Generic-On") TIFFRepresentation];
-	NSData *offIcon = [HWGResolveIconNamed(@"Network-Generic-Off") TIFFRepresentation];
+	// BUG FIX (04-ago-2026): reused the plain generic network globe icon here originally —
+	// confirmed live (user testing with Surfshark) this read as generic/wrong for a VPN-
+	// specific notification. Replaced with a dedicated shield+lock icon (own arte, matching
+	// this monitor's teal accent color from Network-Generic-On.png).
+	NSData *onIcon  = [HWGResolveIconNamed(@"Network-VPN-On") TIFFRepresentation];
+	NSData *offIcon = [HWGResolveIconNamed(@"Network-VPN-Off") TIFFRepresentation];
 
 	for (NSString *ifname in newlyConnected) {
 		[delegate notifyWithName:@"VPNConnected"
@@ -1548,6 +1552,8 @@ static void scCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *in
 		@[@"Other Interface Disconnected", @"Network-Interface-Off", HWG_NET_NOTIFY_OTHER_OFF_KEY],
 		@[@"Generic Connected", @"Network-Generic-On", HWG_NET_NOTIFY_GENERIC_ON_KEY],
 		@[@"Generic Disconnected", @"Network-Generic-Off", HWG_NET_NOTIFY_GENERIC_OFF_KEY],
+		@[@"VPN Connected", @"Network-VPN-On", HWG_VPN_NOTIFY_KEY],
+		@[@"VPN Disconnected", @"Network-VPN-Off", HWG_VPN_NOTIFY_KEY],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);

@@ -6,6 +6,7 @@
 // compile with ARC: -fobjc-arc
 #import "HWGrowlAudioMonitor.h"
 #import <CoreAudio/CoreAudio.h>
+#import <AVFoundation/AVFoundation.h>
 #import "HWGIconOverrideStore.h"
 #import "HWGIconPickerView.h"
 
@@ -36,6 +37,18 @@
 #define HWG_AUDIO_NOTIFY_DEFAULT_INPUT_KEY   @"HWGAudioNotifyDefaultInput"
 #define HWG_AUDIO_NOTIFY_DEVICE_CONNECT_KEY  @"HWGAudioNotifyDeviceConnect"
 #define HWG_AUDIO_NOTIFY_DEVICE_DISCONNECT_KEY @"HWGAudioNotifyDeviceDisconnect"
+
+// #7 (Fase B, 04-ago-2026): microphone in-use, mirroring Camera Monitor's "In Use"/"Idle"
+// feature (kCMIODevicePropertyDeviceIsRunningSomewhere) but for CoreAudio's equivalent
+// property, kAudioDevicePropertyDeviceIsRunningSomewhere — distinct property/framework from
+// Camera Monitor's, confirmed present in this Mac's CoreAudio.framework header. Per explicit
+// user decision (04-ago-2026): ON by default (matching Camera Monitor's actual current
+// default, not the OFF suggested in an earlier TODO draft), and applies to ALL connected
+// microphones (input-capable audio devices), not just the current default input — mirrors
+// Camera Monitor's "listen on every camera simultaneously" architecture rather than Audio
+// Monitor's simpler single-default-device tracking, since the user wants to know about ANY
+// mic being used, not just the default one.
+#define HWG_AUDIO_NOTIFY_MIC_IN_USE_KEY @"HWGAudioNotifyMicInUse"
 
 static BOOL HWGAudioBoolForKey(NSString *key, BOOL def) {
 	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
@@ -73,6 +86,18 @@ static BOOL HWGAudioBoolForKey(NSString *key, BOOL def) {
 @property (nonatomic, copy) AudioObjectPropertyListenerBlock defaultOutputListenerBlock;
 @property (nonatomic, copy) AudioObjectPropertyListenerBlock defaultInputListenerBlock;
 
+// #7: mic in-use tracking. One shared listener block (registered once PER input-capable
+// device, same block reference on each — matches Camera Monitor's pattern) that just
+// recomputes running state for every tracked device rather than needing per-device closures.
+@property (nonatomic, strong) AudioObjectPropertyListenerBlock micInUseListenerBlock;
+// Device IDs currently holding a live kAudioDevicePropertyDeviceIsRunningSomewhere listener —
+// mirrors Camera Monitor's `deviceIDsWithInUseListener`, so teardown/re-diffing on device-list
+// changes only touches IDs known to actually have one registered.
+@property (nonatomic, strong) NSMutableSet<NSNumber *> *deviceIDsWithMicInUseListener;
+// Device IDs currently observed as "running somewhere" (i.e. actively in use by some app) —
+// diffed on every callback to fire Started/Stopped only on the actual transition.
+@property (nonatomic, strong) NSMutableSet<NSNumber *> *runningMicDeviceIDs;
+
 @end
 
 // C callback trampolines — CoreAudio's AudioObjectPropertyListenerBlock already gives us a
@@ -91,6 +116,13 @@ static BOOL HWGAudioBoolForKey(NSString *key, BOOL def) {
 @synthesize devicesListenerBlock;
 @synthesize defaultOutputListenerBlock;
 @synthesize defaultInputListenerBlock;
+@synthesize micInUseListenerBlock;
+@synthesize deviceIDsWithMicInUseListener;
+@synthesize runningMicDeviceIDs;
+
+static AudioObjectPropertyAddress kRunningSomewhereAddress = {
+	kAudioDevicePropertyDeviceIsRunningSomewhere, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain
+};
 
 static AudioObjectPropertyAddress kDevicesAddress = {
 	kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain
@@ -108,6 +140,8 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		knownDeviceIDs = [NSMutableSet set];
 		deviceNames = [NSMutableDictionary dictionary];
 		reportedDeviceIDs = [NSMutableSet set];
+		deviceIDsWithMicInUseListener = [NSMutableSet set];
+		runningMicDeviceIDs = [NSMutableSet set];
 
 		// Baseline silently at launch — like every other monitor — so the first real
 		// connect/disconnect/default-change after this point is the first thing notified.
@@ -132,6 +166,17 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &kDevicesAddress, dispatch_get_main_queue(), self.devicesListenerBlock);
 		AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &kDefaultOutputAddress, dispatch_get_main_queue(), self.defaultOutputListenerBlock);
 		AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &kDefaultInputAddress, dispatch_get_main_queue(), self.defaultInputListenerBlock);
+
+		self.micInUseListenerBlock = ^(UInt32 n, const AudioObjectPropertyAddress *addrs) {
+			(void)n; (void)addrs;
+			[weakSelf refreshMicInUseStateNotifying:YES];
+		};
+
+		if (HWGAudioBoolForKey(HWG_AUDIO_NOTIFY_MIC_IN_USE_KEY, YES)) {
+			[self requestMicrophoneAccessIfNeeded];
+			[self registerMicInUseListeners];
+			[self refreshMicInUseStateNotifying:NO];   // baseline silently, like every other feature
+		}
 	}
 	return self;
 }
@@ -140,6 +185,9 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDevicesAddress, dispatch_get_main_queue(), devicesListenerBlock);
 	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDefaultOutputAddress, dispatch_get_main_queue(), defaultOutputListenerBlock);
 	AudioObjectRemovePropertyListenerBlock(kAudioObjectSystemObject, &kDefaultInputAddress, dispatch_get_main_queue(), defaultInputListenerBlock);
+	for (NSNumber *deviceID in deviceIDsWithMicInUseListener) {
+		AudioObjectRemovePropertyListenerBlock([deviceID unsignedIntValue], &kRunningSomewhereAddress, dispatch_get_main_queue(), micInUseListenerBlock);
+	}
 }
 
 #pragma mark CoreAudio helpers
@@ -334,6 +382,141 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 	}
 
 	knownDeviceIDs = newIDs;
+
+	// #7: re-sync mic-in-use listeners against the fresh device list — drop stale ones for
+	// devices that just disconnected, attach new ones for any newly-connected microphone.
+	// (This point is only reached on the non-baseline path — the baseline branch above
+	// returns early — so notifying here is always appropriate, never the initial silent seed.)
+	if (HWGAudioBoolForKey(HWG_AUDIO_NOTIFY_MIC_IN_USE_KEY, YES)) {
+		[self unregisterStaleMicInUseListeners];
+		[self registerMicInUseListeners];
+		[self refreshMicInUseStateNotifying:YES];
+	}
+}
+
+#pragma mark Microphone in-use (#7)
+
+// BUG FIX (04-ago-2026): confirmed live (user testing with QuickTime — the CoreAudio
+// property itself DOES flip correctly, verified with a standalone diagnostic tool) that
+// merely reading kAudioDevicePropertyDeviceIsRunningSomewhere never prompts for Microphone
+// access and never even lists HardwareGrowler under System Settings → Privacy & Security →
+// Microphone — it silently reports NO regardless of the true state for a process that has
+// never been granted access, with no error and no prompt. Declaring
+// NSMicrophoneUsageDescription in Info.plist alone doesn't trigger the prompt either — macOS
+// only asks when the process actually calls a real audio-capture-adjacent API. Requesting via
+// AVCaptureDevice here (even though nothing is actually captured/recorded) is what makes
+// the permission prompt appear and the app show up in the Privacy list. Gated behind the
+// checkbox — never requested unless the user has this feature enabled, same "don't trigger a
+// system prompt for something the user hasn't opted into" caution already used for Scanner
+// Monitor's Local Network permission.
+-(void)requestMicrophoneAccessIfNeeded {
+	if (![AVCaptureDevice respondsToSelector:@selector(authorizationStatusForMediaType:)]) return;
+	AVAuthorizationStatus status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
+	if (status == AVAuthorizationStatusNotDetermined) {
+		[AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio completionHandler:^(BOOL granted) {
+			(void)granted;   // Nothing to do either way — listeners are already registered;
+							  // a denial just means the running-state reads keep returning NO,
+							  // same failure mode as today, not a crash or a new one.
+		}];
+	}
+}
+
+-(BOOL)deviceHasInputChannels:(AudioDeviceID)deviceID {
+	return [self channelCountForDeviceID:deviceID scope:kAudioDevicePropertyScopeInput] > 0;
+}
+
+-(BOOL)isDeviceRunningSomewhere:(AudioDeviceID)deviceID {
+	UInt32 running = 0;
+	UInt32 size = sizeof(running);
+	OSStatus status = AudioObjectGetPropertyData(deviceID, &kRunningSomewhereAddress, 0, NULL, &size, &running);
+	return status == noErr && running != 0;
+}
+
+// Attaches the shared mic-in-use listener block to every currently-known input-capable
+// device that doesn't already have one — safe to call repeatedly (e.g. after the device list
+// changes, or when the checkbox is turned on).
+-(void)registerMicInUseListeners {
+	for (NSNumber *deviceID in self.knownDeviceIDs) {
+		if ([self.deviceIDsWithMicInUseListener containsObject:deviceID]) continue;
+		AudioDeviceID audioID = [deviceID unsignedIntValue];
+		if (![self deviceHasInputChannels:audioID]) continue;
+		AudioObjectAddPropertyListenerBlock(audioID, &kRunningSomewhereAddress, dispatch_get_main_queue(), self.micInUseListenerBlock);
+		[self.deviceIDsWithMicInUseListener addObject:deviceID];
+	}
+}
+
+// Removes the listener from every tracked device ID that's no longer in the current device
+// list (disconnected) or no longer has input channels — mirrors Camera Monitor's caution
+// about only removing from IDs known to still exist, since calling
+// AudioObjectRemovePropertyListenerBlock on an already-disconnected device ID is unsafe.
+-(void)unregisterStaleMicInUseListeners {
+	NSMutableSet<NSNumber *> *stale = [NSMutableSet set];
+	for (NSNumber *deviceID in self.deviceIDsWithMicInUseListener) {
+		AudioDeviceID audioID = [deviceID unsignedIntValue];
+		BOOL stillPresent = [self.knownDeviceIDs containsObject:deviceID];
+		if (stillPresent && [self deviceHasInputChannels:audioID]) continue;
+		if (stillPresent) {
+			// Still connected (e.g. lost its input channels — shouldn't normally happen, but
+			// safe either way) — fine to remove normally.
+			AudioObjectRemovePropertyListenerBlock(audioID, &kRunningSomewhereAddress, dispatch_get_main_queue(), self.micInUseListenerBlock);
+		}
+		// If it's gone entirely, just drop the bookkeeping — no removal call, matching Camera
+		// Monitor's crash postmortem (removing from a stale/disconnected ID is unsafe).
+		[stale addObject:deviceID];
+		[self.runningMicDeviceIDs removeObject:deviceID];
+	}
+	[self.deviceIDsWithMicInUseListener minusSet:stale];
+}
+
+// Recomputes which tracked input devices are currently "running somewhere" and fires
+// Started/Stopped on the actual transition. `shouldNotify:NO` is used only for the initial
+// silent baseline (at launch, or right after the checkbox is turned on) — same pattern as
+// every other monitor's baseline-then-live-diff approach.
+-(void)refreshMicInUseStateNotifying:(BOOL)shouldNotify {
+	NSMutableSet<NSNumber *> *currentlyRunning = [NSMutableSet set];
+	for (NSNumber *deviceID in self.deviceIDsWithMicInUseListener) {
+		if ([self isDeviceRunningSomewhere:[deviceID unsignedIntValue]]) [currentlyRunning addObject:deviceID];
+	}
+
+	if (shouldNotify) {
+		NSMutableSet<NSNumber *> *startedUsing = [currentlyRunning mutableCopy];
+		[startedUsing minusSet:self.runningMicDeviceIDs];
+		NSMutableSet<NSNumber *> *stoppedUsing = [self.runningMicDeviceIDs mutableCopy];
+		[stoppedUsing minusSet:currentlyRunning];
+
+		for (NSNumber *deviceID in startedUsing) {
+			NSString *name = self.deviceNames[deviceID] ?: [self nameForDeviceID:[deviceID unsignedIntValue]] ?: NSLocalizedString(@"Unknown Device", @"");
+			[delegate notifyWithName:@"AudioMicInUse"
+									 title:NSLocalizedString(@"Microphone Started Being Used", @"")
+							 description:name
+									  icon:[self iconDataForMicInUse:YES]
+					  identifierString:[NSString stringWithFormat:@"HWGrowlAudioMicInUse-%@", deviceID]
+						  contextString:nil
+									plugin:self];
+		}
+		for (NSNumber *deviceID in stoppedUsing) {
+			NSString *name = self.deviceNames[deviceID] ?: [self nameForDeviceID:[deviceID unsignedIntValue]] ?: NSLocalizedString(@"Unknown Device", @"");
+			[delegate notifyWithName:@"AudioMicInUse"
+									 title:NSLocalizedString(@"Microphone Stopped Being Used", @"")
+							 description:name
+									  icon:[self iconDataForMicInUse:NO]
+					  identifierString:[NSString stringWithFormat:@"HWGrowlAudioMicInUse-%@", deviceID]
+						  contextString:nil
+									plugin:self];
+		}
+	}
+
+	self.runningMicDeviceIDs = currentlyRunning;
+}
+
+// BUG FIX (04-ago-2026): originally reused the speaker Connected/Disconnected artwork here —
+// confirmed live (user testing) that this looked wrong (a speaker icon on a "Microphone
+// Started/Stopped Being Used" notification). Replaced with 2 dedicated mic-shaped icons
+// (orange capsule mic matching this monitor's accent color for "in use"; grayed-out mic with
+// a red slash for "idle" — same visual language as the app's other muted/off states).
+-(NSData *)iconDataForMicInUse:(BOOL)inUse {
+	NSString *imageName = inUse ? @"AudioMonitor-Icon-MicInUse" : @"AudioMonitor-Icon-MicIdle";
+	return [HWGResolveIconNamed(imageName) TIFFRepresentation];
 }
 
 #pragma mark Default device changes
@@ -408,7 +591,24 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 -(IBAction)fieldToggleChanged:(NSButton*)sender {
 	NSString *key = sender.identifier;
 	if (!key) return;
-	[[NSUserDefaults standardUserDefaults] setBool:(sender.state == NSControlStateValueOn) forKey:key];
+	BOOL isOn = (sender.state == NSControlStateValueOn);
+	[[NSUserDefaults standardUserDefaults] setBool:isOn forKey:key];
+
+	// #7: (un)register mic-in-use listeners immediately on toggle, rather than waiting for the
+	// next device-list change to notice the checkbox flipped.
+	if ([key isEqualToString:HWG_AUDIO_NOTIFY_MIC_IN_USE_KEY]) {
+		if (isOn) {
+			[self requestMicrophoneAccessIfNeeded];
+			[self registerMicInUseListeners];
+			[self refreshMicInUseStateNotifying:NO];   // baseline silently, don't announce mics already in use
+		} else {
+			for (NSNumber *deviceID in self.deviceIDsWithMicInUseListener) {
+				AudioObjectRemovePropertyListenerBlock([deviceID unsignedIntValue], &kRunningSomewhereAddress, dispatch_get_main_queue(), self.micInUseListenerBlock);
+			}
+			[self.deviceIDsWithMicInUseListener removeAllObjects];
+			[self.runningMicDeviceIDs removeAllObjects];
+		}
+	}
 }
 
 -(NSButton *)checkboxWithKey:(NSString *)key title:(NSString *)title defaultOn:(BOOL)defaultOn {
@@ -422,10 +622,10 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 -(NSView*)preferencePane {
 	if (prefsView) return prefsView;
 
-	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 230)];
+	NSTabView *tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(0, 0, 560, 264)];
 	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 
-	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 230)];
+	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 264)];
 
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Notification fields", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
@@ -439,6 +639,7 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		[self checkboxWithKey:HWG_AUDIO_NOTIFY_DEFAULT_OUTPUT_KEY title:NSLocalizedString(@"Notify on default output change", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_AUDIO_NOTIFY_DEFAULT_INPUT_KEY  title:NSLocalizedString(@"Notify on default input change", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_AUDIO_NOTIFY_DEVICE_CONNECT_KEY title:NSLocalizedString(@"Notify on device connect/disconnect (HDMI/Thunderbolt/Built-in — USB and Bluetooth already covered by their own monitors)", @"") defaultOn:YES],
+		[self checkboxWithKey:HWG_AUDIO_NOTIFY_MIC_IN_USE_KEY     title:NSLocalizedString(@"Notify when a microphone starts/stops being used", @"") defaultOn:YES],
 	];
 
 	[v addSubview:header];
@@ -469,6 +670,8 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		@[@"Module Icon (Sidebar)", @"AudioMonitor-Icon-Module"],
 		@[@"Connected", @"AudioMonitor-Icon", HWG_AUDIO_NOTIFY_DEVICE_CONNECT_KEY],
 		@[@"Disconnected/Muted", @"AudioMonitor-Icon-Off", HWG_AUDIO_NOTIFY_DEVICE_DISCONNECT_KEY],
+		@[@"Microphone In Use", @"AudioMonitor-Icon-MicInUse", HWG_AUDIO_NOTIFY_MIC_IN_USE_KEY],
+		@[@"Microphone Idle", @"AudioMonitor-Icon-MicIdle", HWG_AUDIO_NOTIFY_MIC_IN_USE_KEY],
 	]];
 	iconPicker.translatesAutoresizingMaskIntoConstraints = YES;
 	iconPicker.frame = NSMakeRect(0, 0, iconsWidth, 0);
@@ -506,7 +709,7 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 #pragma mark HWGrowlPluginNotifierProtocol
 
 -(NSArray*)noteNames {
-	return @[@"AudioDeviceConnected", @"AudioDeviceDisconnected", @"AudioDefaultOutputChanged", @"AudioDefaultInputChanged"];
+	return @[@"AudioDeviceConnected", @"AudioDeviceDisconnected", @"AudioDefaultOutputChanged", @"AudioDefaultInputChanged", @"AudioMicInUse"];
 }
 -(NSDictionary*)localizedNames {
 	return @{
@@ -514,6 +717,7 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		@"AudioDeviceDisconnected": NSLocalizedString(@"Audio Device Disconnected", @""),
 		@"AudioDefaultOutputChanged": NSLocalizedString(@"Default Audio Output Changed", @""),
 		@"AudioDefaultInputChanged": NSLocalizedString(@"Default Audio Input Changed", @""),
+		@"AudioMicInUse": NSLocalizedString(@"Microphone In Use", @""),
 	};
 }
 -(NSDictionary*)noteDescriptions {
@@ -522,6 +726,7 @@ static AudioObjectPropertyAddress kDefaultInputAddress = {
 		@"AudioDeviceDisconnected": NSLocalizedString(@"Sent when such an audio device is disconnected", @""),
 		@"AudioDefaultOutputChanged": NSLocalizedString(@"Sent when macOS switches the default audio output device", @""),
 		@"AudioDefaultInputChanged": NSLocalizedString(@"Sent when macOS switches the default audio input device", @""),
+		@"AudioMicInUse": NSLocalizedString(@"Sent when any connected microphone starts or stops actively being used by an app", @""),
 	};
 }
 -(NSArray*)defaultNotifications {

@@ -15,6 +15,17 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// BUG FIX (04-ago-2026): the History panel's table previously only reloaded when the user
+// switched TO the History tab (-selectTabIndex: in AppDelegate.m) — there was no signal at
+// all connecting a newly-persisted entry to the UI, so notifications that fired while the
+// History tab wasn't the active one (or Preferences was closed) could sit persisted-but-
+// unshown for an arbitrary number of further events, exactly matching the reported "lag."
+// Posted on the main queue after each entry is persisted; AppDelegate observes this and
+// reloads the table only when the History tab is actually visible (avoids busywork when it
+// isn't). Not the same as `pruneOlderThanDays:`/`clearAll`, which the UI already refreshes
+// after synchronously via direct calls, not this notification.
+FOUNDATION_EXPORT NSNotificationName const HWGNotificationHistoryDidChangeNotification;
+
 @interface HWGNotificationHistoryEntry : NSObject
 
 @property (nonatomic, strong) NSDate *date;

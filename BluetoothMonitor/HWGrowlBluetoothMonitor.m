@@ -12,12 +12,20 @@
 #import "HWGIconPickerView.h"
 #import <stdlib.h>
 #import <IOBluetooth/IOBluetooth.h>
+#include <IOKit/IOKitLib.h>
 
 // F33: individually configurable fields in the Bluetooth connect notification's extra
 // info — same pattern as Network/Power/USB Monitor. All default to YES.
 #define HWG_BT_SHOW_TYPE_KEY    @"HWGBluetoothShowType"
 #define HWG_BT_SHOW_PAIRED_KEY  @"HWGBluetoothShowPaired"
 #define HWG_BT_SHOW_ADDRESS_KEY @"HWGBluetoothShowAddress"
+// F36 (a): battery level for Apple accessories (AirPods/Magic Mouse/Keyboard/Trackpad) via
+// IOBluetoothDevice's unofficial, undocumented battery selectors — not in the public header,
+// so every read is respondsToSelector:-guarded and wrapped in performSelector. On by default
+// since this is the well-established, widely-used mechanism (same one iStat Menus/Barttery/etc.
+// rely on) for Apple's own accessories specifically. Non-Apple (CoreBluetooth GATT Battery
+// Service) is a separate, not-yet-implemented rope — see TODO.md, blocked on hardware to test.
+#define HWG_BT_SHOW_BATTERY_KEY @"HWGBluetoothShowBattery"
 
 static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
@@ -220,6 +228,121 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	}
 }
 
+// Calls one of IOBluetoothDevice's unofficial battery selectors (batteryPercentSingle /
+// batteryPercentLeft / batteryPercentRight / batteryPercentCase) and returns the percentage,
+// or -1 if the device doesn't respond to that selector or reports no reading. Not in the
+// public IOBluetoothDevice header — every call is respondsToSelector:-guarded first, and the
+// invocation is built via NSInvocation (not a plain performSelector:) because the return
+// type is a small integer, not an object; a plain performSelector: would misinterpret it.
+-(NSInteger)bluetoothBatteryValueForSelectorName:(NSString *)selectorName device:(IOBluetoothDevice *)device {
+	SEL selector = NSSelectorFromString(selectorName);
+	if (![device respondsToSelector:selector]) return -1;
+
+	NSMethodSignature *signature = [device methodSignatureForSelector:selector];
+	if (!signature) return -1;
+
+	NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+	invocation.selector = selector;
+	invocation.target = device;
+	[invocation invoke];
+
+	// All four known selectors return a signed 8-bit percentage (-1 = "no reading").
+	int8_t result = -1;
+	[invocation getReturnValue:&result];
+	return result;
+}
+
+// Strips everything except hex digits and lowercases — Bluetooth addresses show up in
+// different separator styles across IOKit properties (confirmed on this Mac: IOBluetoothDevice's
+// own -addressString vs. the registry's "DeviceAddress"/"SerialNumber" don't necessarily agree
+// on "-" vs ":"), so comparing the bare hex digits is the only format-proof way to match them.
+static NSString *HWGBTNormalizedAddress(NSString *address) {
+	if (!address.length) return @"";
+	NSMutableString *hexOnly = [NSMutableString stringWithCapacity:address.length];
+	NSCharacterSet *hexSet = [NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"];
+	for (NSUInteger i = 0; i < address.length; i++) {
+		unichar c = [address characterAtIndex:i];
+		if ([hexSet characterIsMember:c]) [hexOnly appendFormat:@"%C", c];
+	}
+	return [hexOnly lowercaseString];
+}
+
+// Second battery path, for Apple HID peripherals (Magic Mouse/Keyboard/Trackpad) — confirmed
+// via `ioreg` that these do NOT answer the IOBluetoothDevice private selectors above (those
+// are mainly for AirPods/Beats headphones per Hammerspoon's reverse-engineering notes); their
+// battery instead lives in the IOKit registry, on an `AppleDeviceManagementHIDEventService`
+// node with a "DeviceAddress" property matching the Bluetooth device's address (hex digits
+// only — see HWGBTNormalizedAddress above), and a "BatteryPercent" integer property (confirmed
+// present and correct — read 53 on a real Magic Keyboard while writing this).
+-(NSInteger)bluetoothHIDBatteryPercentForDevice:(IOBluetoothDevice *)device {
+	NSString *targetAddress = HWGBTNormalizedAddress([device addressString]);
+	if (!targetAddress.length) return -1;
+
+	CFMutableDictionaryRef matchDict = IOServiceMatching("AppleDeviceManagementHIDEventService");
+	if (!matchDict) return -1;
+
+	io_iterator_t iterator = IO_OBJECT_NULL;
+	if (IOServiceGetMatchingServices(kIOMainPortDefault, matchDict, &iterator) != kIOReturnSuccess) return -1;
+
+	NSInteger result = -1;
+	io_object_t service;
+	while ((service = IOIteratorNext(iterator))) {
+		// Try "DeviceAddress" first, then "SerialNumber" as a fallback — both were observed
+		// carrying the device's Bluetooth address (in different separator styles) on this Mac's
+		// registry nodes, but not every node necessarily has both keys populated.
+		BOOL matched = NO;
+		for (NSString *addressKey in @[@"DeviceAddress", @"SerialNumber"]) {
+			CFTypeRef addressRef = IORegistryEntryCreateCFProperty(service, (__bridge CFStringRef)addressKey, kCFAllocatorDefault, 0);
+			if (!addressRef) continue;
+			if (CFGetTypeID(addressRef) == CFStringGetTypeID()) {
+				NSString *entryAddress = HWGBTNormalizedAddress((__bridge NSString *)addressRef);
+				if (entryAddress.length && [entryAddress isEqualToString:targetAddress]) matched = YES;
+			}
+			CFRelease(addressRef);
+			if (matched) break;
+		}
+
+		if (matched) {
+			CFTypeRef percentRef = IORegistryEntryCreateCFProperty(service, CFSTR("BatteryPercent"), kCFAllocatorDefault, 0);
+			if (percentRef) {
+				if (CFGetTypeID(percentRef) == CFNumberGetTypeID()) {
+					int percent = -1;
+					CFNumberGetValue((CFNumberRef)percentRef, kCFNumberIntType, &percent);
+					result = percent;
+				}
+				CFRelease(percentRef);
+			}
+		}
+		IOObjectRelease(service);
+		if (result >= 0) break;
+	}
+	IOObjectRelease(iterator);
+	return result;
+}
+
+// AirPods-style devices report Left/Right/Case independently via the private IOBluetoothDevice
+// selectors; Apple HID peripherals (Magic Mouse/Keyboard/Trackpad) report only a single overall
+// value via the IOKit registry path above. Builds one "Battery:" line covering whichever
+// reading is actually available, or nil if neither path has anything (e.g. non-Apple devices).
+-(NSString *)bluetoothBatteryInfoForDevice:(IOBluetoothDevice *)device {
+	NSInteger single = [self bluetoothBatteryValueForSelectorName:@"batteryPercentSingle" device:device];
+	if (single < 0) single = [self bluetoothHIDBatteryPercentForDevice:device];
+	if (single >= 0) {
+		return [NSString stringWithFormat:NSLocalizedString(@"Battery:\t%ld%%", @""), (long)single];
+	}
+
+	NSInteger left  = [self bluetoothBatteryValueForSelectorName:@"batteryPercentLeft"  device:device];
+	NSInteger right = [self bluetoothBatteryValueForSelectorName:@"batteryPercentRight" device:device];
+	NSInteger box   = [self bluetoothBatteryValueForSelectorName:@"batteryPercentCase"  device:device];
+	if (left < 0 && right < 0 && box < 0) return nil;
+
+	NSMutableArray<NSString*> *parts = [NSMutableArray array];
+	if (left  >= 0) [parts addObject:[NSString stringWithFormat:NSLocalizedString(@"L %ld%%", @""), (long)left]];
+	if (right >= 0) [parts addObject:[NSString stringWithFormat:NSLocalizedString(@"R %ld%%", @""), (long)right]];
+	if (box   >= 0) [parts addObject:[NSString stringWithFormat:NSLocalizedString(@"Case %ld%%", @""), (long)box]];
+	return [NSString stringWithFormat:NSLocalizedString(@"Battery:\t%@", @""), [parts componentsJoinedByString:@" / "]];
+}
+
 -(NSString *)bluetoothExtraInfoForDevice:(IOBluetoothDevice *)device {
 	NSMutableArray<NSString*> *lines = [NSMutableArray array];
 
@@ -236,6 +359,11 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	if (HWGBTBoolForKey(HWG_BT_SHOW_ADDRESS_KEY, YES)) {
 		NSString *address = [device addressString];
 		if (address) [lines addObject:[NSString stringWithFormat:NSLocalizedString(@"Address:\t%@", @""), address]];
+	}
+
+	if (HWGBTBoolForKey(HWG_BT_SHOW_BATTERY_KEY, YES)) {
+		NSString *batteryInfo = [self bluetoothBatteryInfoForDevice:device];
+		if (batteryInfo) [lines addObject:batteryInfo];
 	}
 
 	return [lines count] ? [lines componentsJoinedByString:@"\n"] : nil;
@@ -333,7 +461,7 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 	tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 
 	// --- Tab: General (pre-existing "Notification fields" content) ---
-	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, 160)];
+	NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, tabs.bounds.size.width, 190)];
 
 	NSTextField *header = [NSTextField labelWithString:NSLocalizedString(@"Notification fields", @"")];
 	header.font = [NSFont boldSystemFontOfSize:12];
@@ -344,6 +472,7 @@ static BOOL HWGBTBoolForKey(NSString *key, BOOL def) {
 		[self checkboxWithKey:HWG_BT_SHOW_TYPE_KEY    title:NSLocalizedString(@"Device type (Keyboard, Mouse, Headphones…)", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_BT_SHOW_PAIRED_KEY  title:NSLocalizedString(@"Paired state", @"") defaultOn:YES],
 		[self checkboxWithKey:HWG_BT_SHOW_ADDRESS_KEY title:NSLocalizedString(@"MAC address", @"") defaultOn:YES],
+		[self checkboxWithKey:HWG_BT_SHOW_BATTERY_KEY title:NSLocalizedString(@"Battery level (Apple accessories: AirPods, Magic Mouse/Keyboard/Trackpad)", @"") defaultOn:YES],
 	];
 
 	[v addSubview:header];

@@ -290,13 +290,17 @@ static const uint8_t kHWGUSBHubDeviceClass = 9;
 
 // "Device Speed" registry values, per IOKit/usb/USB.h (kUSBDeviceSpeedLow..SuperPlus) —
 // public, standard IOUSBHostFamily property already reachable the same way as bDeviceClass.
+// Case 5 added per the modern tIOUSBHostConnectionSpeed enum in IOUSBHostFamilyDefinitions.h
+// (kIOUSBHostConnectionSpeedSuperPlusBy2 = 20 Gb/s, USB 3.2 Gen 2x2) — the legacy "Device
+// Speed" registry key is understood to extend the same 0-4 sequence with this value.
 -(NSString *)usbSpeedNameForSpeedCode:(uint8_t)speedCode {
 	switch (speedCode) {
 		case 0: return NSLocalizedString(@"USB 1.0 (Low Speed)", @"");
 		case 1: return NSLocalizedString(@"USB 1.1 (Full Speed)", @"");
 		case 2: return NSLocalizedString(@"USB 2.0 (High Speed)", @"");
 		case 3: return NSLocalizedString(@"USB 3.0/3.1 (SuperSpeed)", @"");
-		case 4: return NSLocalizedString(@"USB 3.2 (SuperSpeed+)", @"");
+		case 4: return NSLocalizedString(@"USB 3.2 (SuperSpeed+, 10 Gb/s)", @"");
+		case 5: return NSLocalizedString(@"USB 3.2 Gen 2x2 (SuperSpeed+, 20 Gb/s)", @"");
 		default: return nil;
 	}
 }

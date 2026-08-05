@@ -6,6 +6,8 @@
 // compile with ARC: -fobjc-arc
 #import "HWGNotificationHistoryStore.h"
 
+NSNotificationName const HWGNotificationHistoryDidChangeNotification = @"HWGNotificationHistoryDidChangeNotification";
+
 @implementation HWGNotificationHistoryEntry
 
 - (NSDictionary *)dictionaryRepresentation {
@@ -108,6 +110,9 @@
 	dispatch_async(self.queue, ^{
 		[self.entries insertObject:entry atIndex:0];
 		[self persist];
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[[NSNotificationCenter defaultCenter] postNotificationName:HWGNotificationHistoryDidChangeNotification object:self];
+		});
 	});
 }
 

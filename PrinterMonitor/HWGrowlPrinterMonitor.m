@@ -47,6 +47,17 @@
 #define HWG_PRINTER_SHOW_MAKEMODEL_KEY  @"HWGPrinterShowMakeModel"
 #define HWG_PRINTER_SHOW_CONNECTION_KEY @"HWGPrinterShowConnectionType"
 
+// #6 (Fase B, 04-ago-2026): print job started/finished. Investigated first: CUPS has no true
+// push mechanism usable in-process (IPP job subscriptions only invoke external rss:/mailto:
+// notifier binaries or still require polling their own event queue) — polling `cupsGetJobs()`
+// on the SAME timer this monitor already uses for `cupsGetDests()` is the only realistic,
+// low-effort path, and fits the existing "cheap local IPP round-trip every 3s" reasoning
+// above. OFF by default like the other opt-in additions. UNTESTED against a real print job:
+// this Mac has zero configured printers (`lpstat -p` empty) — logic verified against CUPS's
+// public header (`ipp_jstate_t` enum: PENDING/HELD/PROCESSING/STOPPED/CANCELED/ABORTED/
+// COMPLETED) but not exercised against an actual job in flight. See TODO.md.
+#define HWG_PRINTER_NOTIFY_JOB_KEY @"HWGPrinterNotifyJobStatus"
+
 static BOOL HWGPrinterBoolForKey(NSString *key, BOOL def) {
 	id stored = [[NSUserDefaults standardUserDefaults] objectForKey:key];
 	return stored ? [stored boolValue] : def;
@@ -145,6 +156,12 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 // #2: last known default-printer name, to fire only when it actually changes.
 @property (nonatomic, copy) NSString *lastKnownDefaultPrinter;
 
+// #6: last known ipp_jstate_t per job ID (boxed NSNumber), to fire only on the
+// active→terminal transition, and a baseline-seeded flag so enabling the feature never
+// retroactively "starts"-notifies jobs already in flight before the checkbox was turned on.
+@property (nonatomic, strong) NSMutableDictionary<NSNumber*, NSNumber*> *lastKnownJobStates;
+@property (nonatomic, assign) BOOL jobTrackingBaselineSeeded;
+
 @end
 
 @implementation HWGrowlPrinterMonitor
@@ -155,6 +172,7 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 -(id)init {
 	if ((self = [super init])) {
 		self.lastKnownStateReasons = [NSMutableDictionary dictionary];
+		self.lastKnownJobStates = [NSMutableDictionary dictionary];
 		// Baseline silently at launch — never announce printers/states/defaults that were
 		// already present.
 		NSDictionary<NSString*, HWGPrinterInfo*> *info = HWGCollectPrinterInfo();
@@ -173,7 +191,15 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 }
 
 -(void)updateWatcherState {
-	BOOL enabled = HWGPrinterBoolForKey(HWG_PRINTER_NOTIFY_KEY, NO);
+	// BUG FIX (04-ago-2026): this used to gate the poll timer on HWG_PRINTER_NOTIFY_KEY alone —
+	// meaning enabling ONLY the #1/#2/#6 follow-up checkboxes (error state, default-changed,
+	// job status) while leaving the original connect/disconnect toggle off would never even
+	// start the timer, silently doing nothing. Now starts the timer if ANY of the 4 features
+	// that depend on it are enabled.
+	BOOL enabled = HWGPrinterBoolForKey(HWG_PRINTER_NOTIFY_KEY, NO) ||
+		HWGPrinterBoolForKey(HWG_PRINTER_NOTIFY_ERROR_KEY, NO) ||
+		HWGPrinterBoolForKey(HWG_PRINTER_NOTIFY_DEFAULT_KEY, NO) ||
+		HWGPrinterBoolForKey(HWG_PRINTER_NOTIFY_JOB_KEY, NO);
 	if (enabled && !_pollTimer) {
 		self.pollTimer = [NSTimer scheduledTimerWithTimeInterval:HWG_PRINTER_POLL_INTERVAL
 														   target:self
@@ -299,7 +325,100 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 										plugin:self];
 			}
 		}
+
+		// #6: print job started/finished — OFF by default, untested against a real job (see
+		// HWG_PRINTER_NOTIFY_JOB_KEY's doc comment).
+		if (HWGPrinterBoolForKey(HWG_PRINTER_NOTIFY_JOB_KEY, NO)) {
+			[self checkPrintJobs];
+		} else if (self.jobTrackingBaselineSeeded) {
+			// Feature turned off mid-session — drop tracking state so re-enabling later starts
+			// a fresh baseline instead of comparing against stale job IDs.
+			[self.lastKnownJobStates removeAllObjects];
+			self.jobTrackingBaselineSeeded = NO;
+		}
 	}
+}
+
+// #6: polls the CUPS job queue (all local jobs, not just this user's — `cupsGetJobs` with
+// `myjobs=0`, matching what `lpq`/`lpstat -o` show) and diffs each job's `ipp_jstate_t`
+// against the last poll. Reuses `checkPrinters`'s own 3s timer rather than a separate one.
+-(void)checkPrintJobs {
+	cups_job_t *jobs = NULL;
+	int jobCount = cupsGetJobs(&jobs, NULL, 0, CUPS_WHICHJOBS_ALL);
+
+	NSMutableSet<NSNumber*> *currentJobIDs = [NSMutableSet setWithCapacity:(NSUInteger)MAX(jobCount, 0)];
+	for (int i = 0; i < jobCount; i++) {
+		cups_job_t *job = &jobs[i];
+		NSNumber *jobID = @(job->id);
+		[currentJobIDs addObject:jobID];
+
+		ipp_jstate_t state = job->state;
+		BOOL isActive   = (state == IPP_JSTATE_PENDING || state == IPP_JSTATE_HELD || state == IPP_JSTATE_PROCESSING);
+		BOOL isTerminal = (state == IPP_JSTATE_COMPLETED || state == IPP_JSTATE_CANCELED || state == IPP_JSTATE_ABORTED);
+		NSNumber *previousStateNum = self.lastKnownJobStates[jobID];
+
+		NSString *destName = job->dest ? [NSString stringWithUTF8String:job->dest] : NSLocalizedString(@"Unknown printer", @"");
+		NSString *jobTitle = (job->title && *job->title) ? [NSString stringWithUTF8String:job->title] : nil;
+		NSString *description = jobTitle ? [NSString stringWithFormat:@"%@\n%@", jobTitle, destName] : destName;
+
+		if (!previousStateNum) {
+			// New job. Only announce "Started" once baseline-seeded (i.e. not the very first
+			// poll after enabling the checkbox, which would otherwise retroactively "start"-
+			// notify every job already in flight) AND it's genuinely still active.
+			if (self.jobTrackingBaselineSeeded && isActive) {
+				NSData *iconData = [[HWGrowlPrinterMonitor printerIconConnected:YES] TIFFRepresentation];
+				[delegate notifyWithName:@"PrintJobStarted"
+										 title:NSLocalizedString(@"Print Job Started", @"")
+								 description:description
+										  icon:iconData
+						  identifierString:[NSString stringWithFormat:@"HWGrowlPrintJob-%d", job->id]
+							  contextString:nil
+										plugin:self];
+			}
+		} else {
+			ipp_jstate_t previousState = (ipp_jstate_t)previousStateNum.integerValue;
+			BOOL wasActive = (previousState == IPP_JSTATE_PENDING || previousState == IPP_JSTATE_HELD || previousState == IPP_JSTATE_PROCESSING);
+			if (isTerminal && wasActive) {
+				BOOL succeeded = (state == IPP_JSTATE_COMPLETED);
+				NSData *iconData = [[HWGrowlPrinterMonitor printerIconConnected:succeeded] TIFFRepresentation];
+				NSString *title = succeeded ? NSLocalizedString(@"Print Job Finished", @"")
+													  : NSLocalizedString(@"Print Job Canceled", @"");
+				[delegate notifyWithName:@"PrintJobFinished"
+										 title:title
+								 description:description
+										  icon:iconData
+						  identifierString:[NSString stringWithFormat:@"HWGrowlPrintJob-%d", job->id]
+							  contextString:nil
+										plugin:self];
+			}
+		}
+		self.lastKnownJobStates[jobID] = @(state);
+	}
+
+	// A job that vanished entirely between polls (small/fast jobs can complete and age out of
+	// CUPS's job list within one 3s tick) is treated the same as an observed active→terminal
+	// transition — assume it completed successfully rather than silently dropping the "Started"
+	// notification's counterpart.
+	NSMutableSet<NSNumber*> *vanishedJobIDs = [NSMutableSet setWithArray:[self.lastKnownJobStates allKeys]];
+	[vanishedJobIDs minusSet:currentJobIDs];
+	for (NSNumber *jobID in vanishedJobIDs) {
+		ipp_jstate_t previousState = (ipp_jstate_t)[self.lastKnownJobStates[jobID] integerValue];
+		BOOL wasActive = (previousState == IPP_JSTATE_PENDING || previousState == IPP_JSTATE_HELD || previousState == IPP_JSTATE_PROCESSING);
+		if (wasActive && self.jobTrackingBaselineSeeded) {
+			NSData *iconData = [[HWGrowlPrinterMonitor printerIconConnected:YES] TIFFRepresentation];
+			[delegate notifyWithName:@"PrintJobFinished"
+									 title:NSLocalizedString(@"Print Job Finished", @"")
+							 description:NSLocalizedString(@"Job completed", @"")
+									  icon:iconData
+					  identifierString:[NSString stringWithFormat:@"HWGrowlPrintJob-%@", jobID]
+						  contextString:nil
+									plugin:self];
+		}
+		[self.lastKnownJobStates removeObjectForKey:jobID];
+	}
+
+	self.jobTrackingBaselineSeeded = YES;
+	if (jobs) cupsFreeJobs(jobCount, jobs);
 }
 
 #pragma mark Icon
@@ -544,9 +663,10 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 
 	NSButton *errorRow   = [self checkboxWithKey:HWG_PRINTER_NOTIFY_ERROR_KEY   title:NSLocalizedString(@"Notify when a printer needs attention (out of paper/toner, jammed, offline…)", @"") defaultOn:NO];
 	NSButton *defaultRow = [self checkboxWithKey:HWG_PRINTER_NOTIFY_DEFAULT_KEY title:NSLocalizedString(@"Notify when the default printer changes", @"") defaultOn:NO];
+	NSButton *jobRow     = [self checkboxWithKey:HWG_PRINTER_NOTIFY_JOB_KEY    title:NSLocalizedString(@"Notify when a print job starts/finishes", @"") defaultOn:NO];
 	previous = newNotesHeader;
 	gap = 10;
-	for (NSButton *r in @[errorRow, defaultRow]) {
+	for (NSButton *r in @[errorRow, defaultRow, jobRow]) {
 		[v addSubview:r];
 		[NSLayoutConstraint activateConstraints:@[
 			[r.topAnchor     constraintEqualToAnchor:previous.bottomAnchor constant:gap],
@@ -619,19 +739,23 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 #pragma mark HWGrowlPluginNotifierProtocol
 
 -(NSArray*)noteNames {
-	return [NSArray arrayWithObjects:@"PrinterConnected", @"PrinterDisconnected", @"PrinterError", @"PrinterDefaultChanged", nil];
+	return [NSArray arrayWithObjects:@"PrinterConnected", @"PrinterDisconnected", @"PrinterError", @"PrinterDefaultChanged", @"PrintJobStarted", @"PrintJobFinished", nil];
 }
 -(NSDictionary*)localizedNames {
 	return [NSDictionary dictionaryWithObjectsAndKeys:NSLocalizedString(@"Printer Connected", @""), @"PrinterConnected",
 			  NSLocalizedString(@"Printer Disconnected", @""), @"PrinterDisconnected",
 			  NSLocalizedString(@"Printer Needs Attention", @""), @"PrinterError",
-			  NSLocalizedString(@"Default Printer Changed", @""), @"PrinterDefaultChanged", nil];
+			  NSLocalizedString(@"Default Printer Changed", @""), @"PrinterDefaultChanged",
+			  NSLocalizedString(@"Print Job Started", @""), @"PrintJobStarted",
+			  NSLocalizedString(@"Print Job Finished", @""), @"PrintJobFinished", nil];
 }
 -(NSDictionary*)noteDescriptions {
 	return [NSDictionary dictionaryWithObjectsAndKeys:NSLocalizedString(@"Sent when a printer is added to the system (F34)", @""), @"PrinterConnected",
 			  NSLocalizedString(@"Sent when a printer is removed from the system (F34)", @""), @"PrinterDisconnected",
 			  NSLocalizedString(@"Sent when a printer's state indicates a problem (out of paper/toner, jammed, offline…), and when it clears", @""), @"PrinterError",
-			  NSLocalizedString(@"Sent when the system's default printer changes", @""), @"PrinterDefaultChanged", nil];
+			  NSLocalizedString(@"Sent when the system's default printer changes", @""), @"PrinterDefaultChanged",
+			  NSLocalizedString(@"Sent when a print job starts processing", @""), @"PrintJobStarted",
+			  NSLocalizedString(@"Sent when a print job completes or is canceled", @""), @"PrintJobFinished", nil];
 }
 -(NSArray*)defaultNotifications {
 	return [NSArray array];

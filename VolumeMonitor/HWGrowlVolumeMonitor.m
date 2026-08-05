@@ -12,6 +12,10 @@
 #import "HWGIconPickerView.h"
 #import <sys/param.h>
 #import <sys/mount.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOBSD.h>
+#include <IOKit/IOCFPlugIn.h>
+#include <IOKit/storage/nvme/NVMeSMARTLibExternal.h>
 
 #define VolumeNotifierUnmountWaitSeconds	600.0
 #define VolumeEjectCacheInfoIndex			0
@@ -41,6 +45,21 @@
 // fields, this one is a heuristic guess that can be flatly wrong for some readers (see the
 // "Known limitations" README entry), so it doesn't get the same on-by-default trust.
 #define HWG_VOLUME_SHOW_INTERFACE_KEY @"HWGVolumeShowInterfaceType"
+
+// F5 (Fase B, 04-ago-2026): real NVMe drive health % for internal disks (Apple Silicon internal
+// storage is always NVMe). First attempt tried `diskutil info`'s "SMART Status" boolean
+// ("Verified"/"Failing") via a plain IOKit registry property read — confirmed on real hardware
+// that this property doesn't exist at all on this Mac's internal NVMe controller (only
+// "NVMe SMART Capable" = Yes is present). Replaced with Apple's PUBLIC, documented
+// NVMeSMARTLibExternal.h (developer.apple.com/documentation/iokit/ionvmesmartinterface,
+// shipped in the SDK under APSL) — a real IOCFPlugIn interface that reads the actual NVMe-spec
+// SMART/Health log page, giving `PERCENTAGE_USED` (0-100+), which this reports as
+// `100 - PERCENTAGE_USED` = health %. This is NOT the same undocumented-per-SoC-generation
+// hack third-party tools use on Apple Silicon (see prior comment history) — it's a stable,
+// spec-defined NVMe log page read through Apple's own published interface. Scoped to INTERNAL
+// disks only (external USB/Thunderbolt bridges are a separate, unrelated ATA-SMART problem,
+// not attempted here). ON by default: a low/degrading health % is a real, actionable warning.
+#define HWG_VOLUME_SHOW_SMART_KEY @"HWGVolumeShowSMARTStatus"
 
 // Per-device-type "Notify" toggle (Icons tab) — same mechanism as USB/Thunderbolt/Bluetooth
 // Monitor's. Gates only the MOUNT notification for that category; unmount always notifies
@@ -140,6 +159,69 @@ static BOOL HWGCopyVolumeFileSystemInfo(NSString *path, NSString **outFSType, un
 	if (outFSType) *outFSType = [NSString stringWithUTF8String:sfs.f_fstypename];
 	if (outTotalBytes) *outTotalBytes = (unsigned long long)sfs.f_blocks * (unsigned long long)sfs.f_bsize;
 	return YES;
+}
+
+// Real NVMe health via Apple's PUBLIC NVMeSMARTLibExternal.h (shipped in the SDK under the
+// Apple Public Source License, documented at developer.apple.com/documentation/iokit/ionvmesmartinterface)
+// — NOT the plain "SMART Status" registry property this originally tried to read (confirmed on
+// this Mac's actual internal NVMe controller that no such property exists there at all: only
+// "NVMe SMART Capable" = Yes and an IOCFPlugInTypes entry for NVMeSMARTLib.plugin — the
+// boolean-registry-property approach this replaced would have silently done nothing on any
+// Apple Silicon Mac, including the one this was written on). This gives a REAL NVMe-spec
+// wear percentage (`PERCENTAGE_USED`, section 5.10.1.2 of NVM Express rev 1.0c) instead of
+// just a pass/fail flag — better than the originally-planned boolean, not a downgrade.
+// Scoped to internal disks only (matches -smartStatusLineForMountedPath:'s existing internal
+// check) since Apple Silicon internal storage is always NVMe; external bridges are a separate,
+// unrelated problem (ATA SMART passthrough) not attempted here.
+static BOOL HWGCopyNVMeHealthForBSDName(NSString *bsdName, int *outHealthPercent, BOOL *outCriticalWarning) {
+	if (![bsdName length]) return NO;
+	io_service_t media = IOServiceGetMatchingService(kIOMainPortDefault, IOBSDNameMatching(kIOMainPortDefault, 0, [bsdName UTF8String]));
+	if (!media) return NO;
+
+	// Walk up from the matched IOMedia (which, for an APFS volume, is several hops below the
+	// physical NVMe controller — confirmed on this Mac: AppleAPFSVolumeBSDClient ->
+	// AppleAPFSVolume -> AppleAPFSContainer -> IOMedia(physical store) -> IOMedia(whole disk)
+	// -> IOBlockStorageDriver -> the actual controller node) until a node advertises
+	// "NVMe SMART Capable", which is the one the plugin interface must be opened on.
+	io_service_t current = media;
+	IOObjectRetain(current);
+	io_service_t nvmeService = IO_OBJECT_NULL;
+	for (int hop = 0; hop < 10 && current; hop++) {
+		CFTypeRef capableRef = IORegistryEntryCreateCFProperty(current, CFSTR(kIOPropertyNVMeSMARTCapableKey), kCFAllocatorDefault, 0);
+		BOOL capable = capableRef && CFGetTypeID(capableRef) == CFBooleanGetTypeID() && CFBooleanGetValue((CFBooleanRef)capableRef);
+		if (capableRef) CFRelease(capableRef);
+		if (capable) { nvmeService = current; IOObjectRetain(nvmeService); }
+		io_registry_entry_t parent = IO_OBJECT_NULL;
+		kern_return_t kr = IORegistryEntryGetParentEntry(current, kIOServicePlane, &parent);
+		IOObjectRelease(current);
+		current = (kr == kIOReturnSuccess) ? parent : IO_OBJECT_NULL;
+		if (nvmeService) break;
+	}
+	if (current) IOObjectRelease(current);
+	IOObjectRelease(media);
+	if (!nvmeService) return NO;
+
+	BOOL success = NO;
+	IOCFPlugInInterface **plugin = NULL;
+	SInt32 score = 0;
+	if (IOCreatePlugInInterfaceForService(nvmeService, kIONVMeSMARTUserClientTypeID, kIOCFPlugInInterfaceID, &plugin, &score) == kIOReturnSuccess && plugin) {
+		IONVMeSMARTInterface **smart = NULL;
+		if ((*plugin)->QueryInterface(plugin, CFUUIDGetUUIDBytes(kIONVMeSMARTInterfaceID), (LPVOID *)&smart) == S_OK && smart) {
+			NVMeSMARTData data;
+			memset(&data, 0, sizeof(data));
+			if ((*smart)->SMARTReadData(smart, &data) == kIOReturnSuccess) {
+				if (outHealthPercent) *outHealthPercent = 100 - (int)data.PERCENTAGE_USED;
+				// Bit 2 of CRITICAL_WARNING = "NVM subsystem reliability has been degraded"
+				// (NVMe spec 5.10.1.2) — the closest equivalent to legacy SATA's "Failing".
+				if (outCriticalWarning) *outCriticalWarning = (data.CRITICAL_WARNING & (1 << 2)) != 0;
+				success = YES;
+			}
+			(*smart)->Release(smart);
+		}
+		IODestroyPlugInInterface(plugin);
+	}
+	IOObjectRelease(nvmeService);
+	return success;
 }
 
 @implementation VolumeInfo
@@ -786,6 +868,40 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 	return category;
 }
 
+// F5 (Fase B): real NVMe health percentage for the mount notification — internal disks only
+// (Apple Silicon internal storage is always NVMe; see HWGCopyNVMeHealthForBSDName's doc
+// comment for why this replaced an earlier boolean-only attempt that didn't actually work on
+// real hardware). Same statfs-then-DiskArbitration pattern as -deviceCategoryForMountedPath:
+// above, but this one WANTS the internal case instead of excluding it.
+- (NSString *)smartStatusLineForMountedPath:(NSString *)path {
+	if (!daSession || ![path length]) return nil;
+	struct statfs sfs;
+	if (statfs([path fileSystemRepresentation], &sfs) != 0) return nil;
+	NSString *bsd = [[NSString stringWithUTF8String:sfs.f_mntfromname] lastPathComponent];
+	if (![bsd length]) return nil;
+
+	DADiskRef disk = DADiskCreateFromBSDName(kCFAllocatorDefault, daSession, [bsd UTF8String]);
+	if (!disk) return nil;
+	BOOL isInternal = NO;
+	CFDictionaryRef descRef = DADiskCopyDescription(disk);
+	if (descRef) {
+		NSDictionary *desc = (__bridge_transfer NSDictionary *)descRef;
+		isInternal = [desc[(__bridge NSString *)kDADiskDescriptionDeviceInternalKey] boolValue];
+	}
+	CFRelease(disk);
+	if (!isInternal) return nil;   // scoped to internal NVMe only — see doc comment above
+
+	int healthPercent = -1;
+	BOOL criticalWarning = NO;
+	if (!HWGCopyNVMeHealthForBSDName(bsd, &healthPercent, &criticalWarning) || healthPercent < 0) return nil;
+
+	NSString *line = [NSString stringWithFormat:NSLocalizedString(@"Drive Health:\t%d%%", @""), healthPercent];
+	if (criticalWarning) {
+		line = [line stringByAppendingFormat:@" (%@)", NSLocalizedString(@"Warning", @"")];
+	}
+	return line;
+}
+
 - (BOOL)stringContainsCardReaderToken:(NSString *)s {
 	if (![s length]) return NO;
 	NSString *lower = [s lowercaseString];
@@ -867,9 +983,15 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 		BOOL showFSType    = HWGVolumeBoolForKey(HWG_VOLUME_SHOW_FSTYPE_KEY, YES);
 		BOOL showSize      = HWGVolumeBoolForKey(HWG_VOLUME_SHOW_SIZE_KEY, YES);
 		BOOL showInterface = HWGVolumeBoolForKey(HWG_VOLUME_SHOW_INTERFACE_KEY, NO);
+		BOOL showSMART     = HWGVolumeBoolForKey(HWG_VOLUME_SHOW_SMART_KEY, YES);
 
 		NSMutableArray<NSString*> *extraLines = [NSMutableArray array];
 		if (showPath && [volume path]) [extraLines addObject:[volume path]];
+
+		if (showSMART) {
+			NSString *smartLine = [self smartStatusLineForMountedPath:[volume path]];
+			if (smartLine) [extraLines addObject:smartLine];
+		}
 
 		if (showInterface) {
 			NSString *interface = [self interfaceDescriptionForMountedPath:[volume path]];
@@ -1097,6 +1219,9 @@ static void hwgDiskDisappearedCallback(DADiskRef disk, void *context) {
 		[self checkboxWithKey:HWG_VOLUME_SHOW_SIZE_KEY   title:NSLocalizedString(@"Volume size", @"") defaultOn:YES],
 		// F34 #3: SD/CF card reader vs generic USB, via Disk Arbitration's protocol key.
 		[self checkboxWithKey:HWG_VOLUME_SHOW_INTERFACE_KEY title:NSLocalizedString(@"Interface / card reader type", @"") defaultOn:YES],
+		// F5 (Fase B): internal-disk SMART Verified/Failing status — no % health available, see
+		// HWG_VOLUME_SHOW_SMART_KEY's doc comment.
+		[self checkboxWithKey:HWG_VOLUME_SHOW_SMART_KEY title:NSLocalizedString(@"Drive health % (internal disks)", @"") defaultOn:YES],
 	];
 	// Build top-down (cursor starts at 0, grows downward) in a FLIPPED content view — see
 	// HWGVolumeFlippedContentView above. This fixes two related problems at once:
