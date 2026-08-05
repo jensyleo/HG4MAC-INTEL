@@ -88,6 +88,24 @@ was simply never registered, regardless of what the previous build's entry says.
    `log stream`: a rebuilt-and-relaunched binary re-asserted its registration
    (`HWG setStartAtLogin: YES` → `Register ... error: 0`) with no user interaction.
 
+**Observation (2026-08-04): the duplicate didn't appear after the v1.9.2 rebuild+reinstall.**
+Re-read `setStartAtLogin`/`isRegisteredAtLogin` line-by-line against earlier sessions where
+the duplicate DID appear — identical code, nothing changed. Verified with
+`sfltool dumpbtm`: only one HG4MAC entry, its cdhash matching `codesign -dvvv`'s output for
+the currently-installed binary exactly. Best explanation found: **timing, not a fix.** In
+earlier sessions, Login Items was checked via AppleScript *seconds* after the
+reinstall — no window for macOS to clean up the stale entry. This time, significant time
+(publishing the release, writing notes, other conversation) passed between reinstall and
+when Login Items was actually checked. Consistent with the standing theory that BTM may
+garbage-collect orphaned entries (pointing to a cdhash no longer on disk) asynchronously,
+just not on any guaranteed schedule — tried to confirm via
+`log show --predicate 'process == "backgroundtaskmanagementd"'` but found no trace (likely
+not logged at the public level, or already rotated out of the buffer by the time this was
+checked). **Do not treat this as resolved** — same root cause (cdhash identity without
+stable signing) still applies; the practical takeaway is that the duplicate may or may not
+be visible depending on how soon after a reinstall you check, not that it stopped
+happening.
+
 **What this does NOT fix:** the auto-heal keeps the *current* binary's registration
 correct automatically, but it has no way to find or remove an *orphaned* entry left by a
 previous, differently-hashed build — there is no public API to enumerate or delete other
