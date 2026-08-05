@@ -4,6 +4,14 @@ All notable changes made in this fork on top of
 [`pranav-prakash/HardwareGrowler-NC`](https://github.com/pranav-prakash/HardwareGrowler-NC).
 Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-series)**.
 
+## v1.9.3 — 2026-08-05
+
+### Fixed: print job notifications never fired
+- The "Notify when a print job starts/finishes" feature (added in v1.9.2) had its polling
+  code accidentally nested inside the unrelated "default printer changed" checkbox's `if`
+  block, so it never ran regardless of its own checkbox state. Confirmed fixed against a real
+  local test print queue — Started, Finished, and Canceled all fire correctly now.
+
 ## v1.9.2 — 2026-08-04
 
 ### New: USB device speed in notifications

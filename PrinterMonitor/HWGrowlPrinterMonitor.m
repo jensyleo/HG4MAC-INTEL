@@ -325,17 +325,21 @@ static BOOL HWGStateReasonsIndicateProblem(NSString *reasons) {
 										plugin:self];
 			}
 		}
+	}
 
-		// #6: print job started/finished — OFF by default, untested against a real job (see
-		// HWG_PRINTER_NOTIFY_JOB_KEY's doc comment).
-		if (HWGPrinterBoolForKey(HWG_PRINTER_NOTIFY_JOB_KEY, NO)) {
-			[self checkPrintJobs];
-		} else if (self.jobTrackingBaselineSeeded) {
-			// Feature turned off mid-session — drop tracking state so re-enabling later starts
-			// a fresh baseline instead of comparing against stale job IDs.
-			[self.lastKnownJobStates removeAllObjects];
-			self.jobTrackingBaselineSeeded = NO;
-		}
+	// BUG FIX (05-ago-2026): this block was accidentally left nested inside the #2
+	// (HWG_PRINTER_NOTIFY_DEFAULT_KEY) `if` above — since that checkbox defaults OFF, print
+	// job polling silently never ran at all, regardless of HWG_PRINTER_NOTIFY_JOB_KEY's own
+	// state. Confirmed live with a real local test print queue: moving this to run
+	// unconditionally (same level as #1/#2 above) fixed it — jobs now correctly detected.
+	// #6: print job started/finished.
+	if (HWGPrinterBoolForKey(HWG_PRINTER_NOTIFY_JOB_KEY, NO)) {
+		[self checkPrintJobs];
+	} else if (self.jobTrackingBaselineSeeded) {
+		// Feature turned off mid-session — drop tracking state so re-enabling later starts
+		// a fresh baseline instead of comparing against stale job IDs.
+		[self.lastKnownJobStates removeAllObjects];
+		self.jobTrackingBaselineSeeded = NO;
 	}
 }
 
