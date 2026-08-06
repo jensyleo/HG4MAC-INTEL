@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		09A9FD093DEAA959B8A4E3A2 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		102CD950EE257885DEB7B39F /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		1B2F8D7B1479814F3AA17694 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		1BD1FA8BD4848AF07CB75904 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
 		1C3EE35E7BC5F7BC8FDABEC3 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		2306EFF017AF6FB84306056E /* GamepadMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = 26C644079E7A4E5D14DB48FE /* GamepadMonitor.hwgrowlmonitor */; };
@@ -17,6 +18,7 @@
 		2AEB2E72E47527261A9C6719 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		2D15980CD0C545B80B815C23 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8A6891761CDACC2C4BBD62D /* Cocoa.framework */; };
 		2D3FD65FC252E022B2F3FAE2 /* CameraMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = 061E1C1E7865BA9423D1E7A9 /* CameraMonitor.hwgrowlmonitor */; };
+		393ADA9DA7AABA50B0A16FB6 /* HWGIconOverrideStoreTests.m in Sources */ = {isa = PBXBuildFile; fileRef = A161A2F90C205C38B847FD80 /* HWGIconOverrideStoreTests.m */; };
 		3ED86BF4A736AB28DA4EDF92 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 57A1D1B121E16AC6F28773C0 /* InfoPlist.strings */; };
 		48143DB661E5217D88BAE98E /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		49BD6D7CCFF1DD15A3EF64E0 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
@@ -25,15 +27,11 @@
 		50DA0C0F2E5BF12225A7A88E /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		51E2BA667CD73FE44F05C8F3 /* AudioMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = 5B65B1281479F5D1AB055AF2 /* AudioMonitor.hwgrowlmonitor */; };
 		527149EFE0EC427C018D0A03 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		530101A413A9965A28A34EBC /* ScannerMonitor.bundle in Copy Plugins */ = {isa = PBXBuildFile; fileRef = 5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */; };
 		611AACBCBD130F1B08545540 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		650C5C466791A12422E68C56 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		69DE294A05B3AA7D73D43557 /* HWGNotificationHistoryStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */; };
 		73292A1EBEF889078FD97E7C /* HWGrowlPrinterMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 364B05255AE7966EB3FC727E /* HWGrowlPrinterMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
-		AC05D72AFBCEB310073A7E78 /* HWGrowlScannerMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 28836ADB028995789C65CA65 /* HWGrowlScannerMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
-		AABB00457BBB1B4C1DF230C1 /* HWGrowlScannerMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = 52E9D97D591BA41D19882DD0 /* HWGrowlScannerMonitor.h */; };
-		530101A413A9965A28A34EBC /* ScannerMonitor.bundle in Copy Plugins */ = {isa = PBXBuildFile; fileRef = 5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */; };
-		1B2F8D7B1479814F3AA17694 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
-		CB3272AB4F3EF8A299782D73 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
-		B17829C38BB662781E6009E4 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
 		767F7955642A7B3837652587 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
 		7D25EFA051FA85B2290A318C /* CoreMediaIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F583E88763D7AB0582931453 /* CoreMediaIO.framework */; };
 		80FFEC0D9781B3F2803A921B /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
@@ -46,19 +44,27 @@
 		932173DB163A43F200D5790F /* USBMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = BC523C221555686000548427 /* USBMonitor.hwgrowlmonitor */; };
 		932173DC163A43F200D5790F /* BluetoothMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = BCA26B5D155585C0009C5ABC /* BluetoothMonitor.hwgrowlmonitor */; };
 		932173DE163A43F200D5790F /* PowerMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = BCA26BB31555BB1A009C5ABC /* PowerMonitor.hwgrowlmonitor */; };
+		93A6633C4A6E84DA466A76BB /* HWGrowlNetworkMonitorTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD391AB103A49025CD309B3 /* HWGrowlNetworkMonitorTests.m */; };
 		9B0FA391925F3173D42B9601 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2EBF27A41B83BDC3603D33B7 /* CoreAudio.framework */; };
 		9E31693F38F387F0281DC006 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		9F8FF31537EA3602E120FC83 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 7FCBFE2ED37C5077F1D96FD2 /* InfoPlist.strings */; };
+		A1436E0A120C12B539E215CD /* HWGNotificationHistoryStoreTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 86A3E6AC1375FFF4C41C4FDE /* HWGNotificationHistoryStoreTests.m */; };
+		A1D10004A1D10004A1D10004 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3229F2ABB9D0DAB3CCBC2B5D /* AVFoundation.framework */; };
 		A4071261BA0B577462D35581 /* GameController.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8AAD83A132BDE2CE4CAA3EC /* GameController.framework */; };
 		A500019D4CE7C95958C7F7D4 /* HWGNotificationHistoryStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		A7A1751089FA371795A56E89 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		A82344B6B977E2C68D91DD9E /* HWGWifiSignal.m in Sources */ = {isa = PBXBuildFile; fileRef = FD09932A4B1F7E80D784BD21 /* HWGWifiSignal.m */; };
 		AA000001000000000000AA01 /* GrowlApplicationBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000AA00 /* GrowlApplicationBridge.m */; settings = {COMPILER_FLAGS = "-fobjc-arc -fobjc-exceptions"; }; };
 		AA000002000000000000AA01 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000002000000000000AA00 /* UserNotifications.framework */; };
 		AA000003000000000000AA01 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000003000000000000AA00 /* CoreBluetooth.framework */; };
 		AA000004000000000000AA01 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000004000000000000AA00 /* UniformTypeIdentifiers.framework */; };
+		AABB00457BBB1B4C1DF230C1 /* HWGrowlScannerMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = 52E9D97D591BA41D19882DD0 /* HWGrowlScannerMonitor.h */; };
+		AC05D72AFBCEB310073A7E78 /* HWGrowlScannerMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 28836ADB028995789C65CA65 /* HWGrowlScannerMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		AEEBCE53BBD592F7A0CB9B6A /* HWGrowlCameraMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 45F058C4C7F8BF201489D77E /* HWGrowlCameraMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		AF112BFAC1D5162DBF3EE2C8 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		B17829C38BB662781E6009E4 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
 		B1AC66D5EF7508BCDEB1C532 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
+		B3EAB3FA642D7DE84B6D8B5F /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; };
 		B571587085B3695D11DFFFBF /* HWGrowlAudioMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 207F0F159F573DA92C7635DF /* HWGrowlAudioMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		B5E2918489E75576EF497D74 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = E0C8A4DFC967BD9B78D4736D /* InfoPlist.strings */; };
 		BADA447A9F08AADEA608DE8D /* PrinterMonitor.bundle in Copy Plugins */ = {isa = PBXBuildFile; fileRef = 002E18860471C7FA5DF3A775 /* PrinterMonitor.bundle */; };
@@ -79,10 +85,9 @@
 		BCA26B7215558853009C5ABC /* IOBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCA26B7015558837009C5ABC /* IOBluetooth.framework */; };
 		BCA26BB41555BB1B009C5ABC /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCB805EB155153330088C69A /* Cocoa.framework */; };
 		BCA26BBA1555BB1B009C5ABC /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BCA26BB81555BB1B009C5ABC /* InfoPlist.strings */; };
+		BCA26BFF15558600009C5ABD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC523C3515556BE500548427 /* IOKit.framework */; };
 		BCAA1764155784C800D9E4ED /* HWGrowlPowerMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = BCAA1763155784C800D9E4ED /* HWGrowlPowerMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		BCAA1778155804A000D9E4ED /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC523C3515556BE500548427 /* IOKit.framework */; };
-		BCA26BFF15558600009C5ABD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC523C3515556BE500548427 /* IOKit.framework */; };
-		BCECA3FF155322D200F49281 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC523C3515556BE500548427 /* IOKit.framework */; };
 		BCB805EC155153330088C69A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCB805EB155153330088C69A /* Cocoa.framework */; };
 		BCB805F6155153330088C69A /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BCB805F4155153330088C69A /* InfoPlist.strings */; };
 		BCB805F8155153330088C69A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = BCB805F7155153330088C69A /* main.m */; };
@@ -115,6 +120,7 @@
 		BCECA38D155322D200F49280 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCB805EB155153330088C69A /* Cocoa.framework */; };
 		BCECA394155322D200F49280 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BCECA392155322D200F49280 /* InfoPlist.strings */; };
 		BCECA3AB155322FD00F49280 /* HWGrowlVolumeMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = BCECA3AA155322FD00F49280 /* HWGrowlVolumeMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		BCECA3FF155322D200F49281 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC523C3515556BE500548427 /* IOKit.framework */; };
 		BE16F12FF297248221183287 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5A7F3479CCCECB3B0FBE1265 /* InfoPlist.strings */; };
 		BE4B66BCC9673A696F806630 /* libcups.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = DF665225A4D643927B329D89 /* libcups.tbd */; };
 		C0FE0001C0FE0001C0FE0001 /* CoreWLAN.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0FE0002C0FE0002C0FE0002 /* CoreWLAN.framework */; };
@@ -127,10 +133,12 @@
 		C0FE0039C0FE0039C0FE0039 /* HWGrowlThermalMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = C0FE0038C0FE0038C0FE0038 /* HWGrowlThermalMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		C0FE003AC0FE003AC0FE003A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCB805EB155153330088C69A /* Cocoa.framework */; };
 		C43B44AC844B6147B6EC872A /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3229F2ABB9D0DAB3CCBC2B5D /* AVFoundation.framework */; };
-		A1D10004A1D10004A1D10004 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3229F2ABB9D0DAB3CCBC2B5D /* AVFoundation.framework */; };
 		C43E192713E8AD11A2EEF0F7 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		C5A5C88DF3EE67FD47654650 /* HWGIconOverrideStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		C6B4F5FE121048C29792E56C /* HWGrowlGamepadMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 87993853320360C61A0302FA /* HWGrowlGamepadMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		CB3272AB4F3EF8A299782D73 /* HWGIconPickerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 32C4D07D06AAE813831A914C /* HWGIconPickerView.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		CC2644AF61F69AB834E40FD9 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 47EBEED5E9D3607346F0D598 /* Cocoa.framework */; };
+		D0183CB4660A1D66320A5089 /* HWGWifiSignal.m in Sources */ = {isa = PBXBuildFile; fileRef = FD09932A4B1F7E80D784BD21 /* HWGWifiSignal.m */; };
 		D1590001D1590001D1590001 /* DisplayMonitor.hwgrowlmonitor in Copy Plugins */ = {isa = PBXBuildFile; fileRef = D1590002D1590002D1590002 /* DisplayMonitor.hwgrowlmonitor */; };
 		D1590003D1590003D1590003 /* HWGrowlDisplayMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = D1590004D1590004D1590004 /* HWGrowlDisplayMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		D1590009D1590009D1590009 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D1590008D1590008D1590008 /* InfoPlist.strings */; };
@@ -181,125 +189,6 @@
 			remoteGlobalIDString = BCA26BB21555BB1A009C5ABC;
 			remoteInfo = PowerMonitor;
 		};
-		BCB8066E155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = CB61E5180637763C00E0DDC7;
-			remoteInfo = Growl.app;
-		};
-		BCB80670155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = BC29B27714D12D5300C72855;
-			remoteInfo = GrowlLauncher;
-		};
-		BCB80672155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 34F60EAB078E1CD500CECA86;
-			remoteInfo = Growl.framework;
-		};
-		BCB80674155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = BC83FC11150087EB000504F9;
-			remoteInfo = GrowlPlugins;
-		};
-		BCB80676155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 0AB508B10767C87B006EA5CB;
-			remoteInfo = Speech;
-		};
-		BCB80678155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 95FC347907E0458E00BD8674;
-			remoteInfo = Brushed;
-		};
-		BCB8067A155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 0AB508AE0767C87B006EA5CB;
-			remoteInfo = Bubbles;
-		};
-		BCB8067C155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = E14410EF0A94072E0063C4DC;
-			remoteInfo = iCal;
-		};
-		BCB8067E155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 0AB508B40767C87B006EA5CB;
-			remoteInfo = Bezel;
-		};
-		BCB80680155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 0AB508AF0767C87B006EA5CB;
-			remoteInfo = Smoke;
-		};
-		BCB80682155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 93BC379E095A662B0002B365;
-			remoteInfo = Nano;
-		};
-		BCB80684155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 0AB508B30767C87B006EA5CB;
-			remoteInfo = MusicVideo;
-		};
-		BCB80686155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = DD4939CC084BACA700D1CCCB;
-			remoteInfo = SMS;
-		};
-		BCB80688155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 31E184D61084628D0011C78B;
-			remoteInfo = "Unit tests";
-		};
-		BCB8068A155158DA0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = FF93C8E314218EB3007EAC43;
-			remoteInfo = GNTPClientService;
-		};
-		BCB8068D155158EF0088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = FF93C8E214218EB3007EAC43;
-			remoteInfo = GNTPClientService;
-		};
-		BCB8068F155158F50088C69A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = 34F60EAA078E1CD500CECA86;
-			remoteInfo = Growl.framework;
-		};
 		BCB807641551A6F10088C69A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BCB805DE155153330088C69A /* Project object */;
@@ -313,6 +202,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = BCECA38B155322D200F49280;
 			remoteInfo = VolumeMonitor;
+		};
+		BEA81CB46BD3E60746D96890 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BCB805DE155153330088C69A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3A7EF6544E27925EBC17DF4E;
+			remoteInfo = ScannerMonitor;
 		};
 		C0FE0012C0FE0012C0FE0012 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -334,13 +230,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = C5B823D438B01E02018E7935;
 			remoteInfo = PrinterMonitor;
-		};
-		BEA81CB46BD3E60746D96890 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BCB805DE155153330088C69A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 3A7EF6544E27925EBC17DF4E;
-			remoteInfo = ScannerMonitor;
 		};
 		D1577DDC1317B105C2AF4033 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -396,18 +285,15 @@
 
 /* Begin PBXFileReference section */
 		002E18860471C7FA5DF3A775 /* PrinterMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; path = PrinterMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; path = ScannerMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		D044D03B0DE085825AB1ED37 /* ScannerMonitor-Prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "ScannerMonitor-Prefix.pch"; sourceTree = "<group>"; };
-		28836ADB028995789C65CA65 /* HWGrowlScannerMonitor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlScannerMonitor.m; sourceTree = "<group>"; };
-		52E9D97D591BA41D19882DD0 /* HWGrowlScannerMonitor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = HWGrowlScannerMonitor.h; sourceTree = "<group>"; };
-		45360ABDDFF4F20B5892D8CC /* ScannerMonitor-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "ScannerMonitor-Info.plist"; sourceTree = "<group>"; };
 		0611B5A901C5502D6927AA52 /* HWGNotificationHistoryStore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HWGNotificationHistoryStore.h; sourceTree = "<group>"; };
 		061E1C1E7865BA9423D1E7A9 /* CameraMonitor.hwgrowlmonitor */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; name = CameraMonitor.hwgrowlmonitor; path = CameraMonitor.hwgrowlmonitor; sourceTree = BUILT_PRODUCTS_DIR; };
 		177BD1B00DAE17A0562B1E5B /* CameraMonitor-Prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "CameraMonitor-Prefix.pch"; sourceTree = "<group>"; };
 		1E2871605E7811C094BB2E67 /* HWGNotificationHistoryStore.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HWGNotificationHistoryStore.m; sourceTree = "<group>"; };
 		207F0F159F573DA92C7635DF /* HWGrowlAudioMonitor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlAudioMonitor.m; sourceTree = "<group>"; };
 		26C644079E7A4E5D14DB48FE /* GamepadMonitor.hwgrowlmonitor */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; name = GamepadMonitor.hwgrowlmonitor; path = GamepadMonitor.hwgrowlmonitor; sourceTree = BUILT_PRODUCTS_DIR; };
+		28836ADB028995789C65CA65 /* HWGrowlScannerMonitor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlScannerMonitor.m; sourceTree = "<group>"; };
 		28C2064DAA83FBBCEAB47438 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
+		2DEDBEA5A592C360F312425F /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2EB942F2FEFE48501FBD5CD3 /* HWGrowlCameraMonitor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = HWGrowlCameraMonitor.h; sourceTree = "<group>"; };
 		2EBF27A41B83BDC3603D33B7 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
 		3140A1A840848086373720F3 /* PrinterMonitor-Prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "PrinterMonitor-Prefix.pch"; sourceTree = "<group>"; };
@@ -415,22 +301,30 @@
 		3229F2ABB9D0DAB3CCBC2B5D /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		32C4D07D06AAE813831A914C /* HWGIconPickerView.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGIconPickerView.m; sourceTree = "<group>"; };
 		364B05255AE7966EB3FC727E /* HWGrowlPrinterMonitor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlPrinterMonitor.m; sourceTree = "<group>"; };
+		3DD391AB103A49025CD309B3 /* HWGrowlNetworkMonitorTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlNetworkMonitorTests.m; sourceTree = "<group>"; };
 		4037963D66E3B8B92B4F3D67 /* HWGIconOverrideStore.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = HWGIconOverrideStore.h; sourceTree = "<group>"; };
+		45360ABDDFF4F20B5892D8CC /* ScannerMonitor-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "ScannerMonitor-Info.plist"; sourceTree = "<group>"; };
 		45F058C4C7F8BF201489D77E /* HWGrowlCameraMonitor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlCameraMonitor.m; sourceTree = "<group>"; };
 		46F9CF4C7B00E3F4F888628E /* GamepadMonitor-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "GamepadMonitor-Info.plist"; sourceTree = "<group>"; };
 		47EBEED5E9D3607346F0D598 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		4EF950D6C0CAC8689AE2564A /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		52E9D97D591BA41D19882DD0 /* HWGrowlScannerMonitor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = HWGrowlScannerMonitor.h; sourceTree = "<group>"; };
 		57A1D1B121E16AC6F28773C0 /* InfoPlist.strings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; path = ScannerMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		5A7F3479CCCECB3B0FBE1265 /* InfoPlist.strings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5B65B1281479F5D1AB055AF2 /* AudioMonitor.hwgrowlmonitor */ = {isa = PBXFileReference; explicitFileType = "wrapper.plug-in"; includeInIndex = 0; name = AudioMonitor.hwgrowlmonitor; path = AudioMonitor.hwgrowlmonitor; sourceTree = BUILT_PRODUCTS_DIR; };
+		62E75064BD31B451F46030D2 /* HWGWifiSignal.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = HWGWifiSignal.h; sourceTree = "<group>"; };
 		64060E1505A9BDC1D8B47555 /* HWGIconOverrideStore.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGIconOverrideStore.m; sourceTree = "<group>"; };
+		7C184E8CEE38153E402D9A6E /* HardwareGrowlerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HardwareGrowlerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7FCBFE2ED37C5077F1D96FD2 /* InfoPlist.strings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		82120C8656FB1F225B38722B /* AudioMonitor-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "AudioMonitor-Info.plist"; sourceTree = "<group>"; };
 		8563B2B8C16F158DB6D273FF /* PrinterMonitor-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "PrinterMonitor-Info.plist"; sourceTree = "<group>"; };
 		85E96DFD670D8687C1AF1204 /* HWGrowlPrinterMonitor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = HWGrowlPrinterMonitor.h; sourceTree = "<group>"; };
+		86A3E6AC1375FFF4C41C4FDE /* HWGNotificationHistoryStoreTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGNotificationHistoryStoreTests.m; sourceTree = "<group>"; };
 		87993853320360C61A0302FA /* HWGrowlGamepadMonitor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGrowlGamepadMonitor.m; sourceTree = "<group>"; };
 		93AD0193165BBADF005B790D /* GrowlToolChainSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = GrowlToolChainSupport.h; path = ../GrowlToolChainSupport.h; sourceTree = "<group>"; };
 		9D3254D1B059C800B2C7DA8F /* GamepadMonitor-Prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "GamepadMonitor-Prefix.pch"; sourceTree = "<group>"; };
+		A161A2F90C205C38B847FD80 /* HWGIconOverrideStoreTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGIconOverrideStoreTests.m; sourceTree = "<group>"; };
 		AA000001000000000000AA00 /* GrowlApplicationBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GrowlApplicationBridge.m; path = GrowlStub/GrowlApplicationBridge.m; sourceTree = SOURCE_ROOT; };
 		AA000002000000000000AA00 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
 		AA000003000000000000AA00 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
@@ -483,7 +377,6 @@
 		BCB80611155154CA0088C69A /* HWGrowler.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = HWGrowler.icns; path = Resources/HWGrowler.icns; sourceTree = SOURCE_ROOT; };
 		BCB80612155154CA0088C69A /* menubarIcon_Normal.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = menubarIcon_Normal.png; path = Resources/menubarIcon_Normal.png; sourceTree = SOURCE_ROOT; };
 		BCB80613155154CA0088C69A /* menubarIcon_Selected.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = menubarIcon_Selected.png; path = Resources/menubarIcon_Selected.png; sourceTree = SOURCE_ROOT; };
-		BCB8065B155158DA0088C69A /* Growl.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = Growl.xcodeproj; path = ../../../Growl.xcodeproj; sourceTree = "<group>"; };
 		BCB806AE15515C4E0088C69A /* HardwareGrowlerLauncher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HardwareGrowlerLauncher.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BCB806B315515C4E0088C69A /* HardwareGrowlerLauncher-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "HardwareGrowlerLauncher-Info.plist"; sourceTree = "<group>"; };
 		BCB806B515515C4E0088C69A /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -537,6 +430,7 @@
 		C0FE0037C0FE0037C0FE0037 /* HWGrowlThermalMonitor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HWGrowlThermalMonitor.h; sourceTree = "<group>"; };
 		C0FE0038C0FE0038C0FE0038 /* HWGrowlThermalMonitor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HWGrowlThermalMonitor.m; sourceTree = "<group>"; };
 		C7CB0835A490148B193DA7DC /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = ../../../../../../../../System/Library/Frameworks/Cocoa.framework; sourceTree = "<group>"; };
+		D044D03B0DE085825AB1ED37 /* ScannerMonitor-Prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "ScannerMonitor-Prefix.pch"; sourceTree = "<group>"; };
 		D1590002D1590002D1590002 /* DisplayMonitor.hwgrowlmonitor */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DisplayMonitor.hwgrowlmonitor; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1590004D1590004D1590004 /* HWGrowlDisplayMonitor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HWGrowlDisplayMonitor.m; sourceTree = "<group>"; };
 		D1590005D1590005D1590005 /* HWGrowlDisplayMonitor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HWGrowlDisplayMonitor.h; sourceTree = "<group>"; };
@@ -554,17 +448,10 @@
 		EB426F14785118DBA9BE209A /* CameraMonitor-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "CameraMonitor-Info.plist"; sourceTree = "<group>"; };
 		F468267F954787ECCF64416F /* AudioMonitor-Prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "AudioMonitor-Prefix.pch"; sourceTree = "<group>"; };
 		F583E88763D7AB0582931453 /* CoreMediaIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMediaIO.framework; path = System/Library/Frameworks/CoreMediaIO.framework; sourceTree = SDKROOT; };
+		FD09932A4B1F7E80D784BD21 /* HWGWifiSignal.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = HWGWifiSignal.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		634CE06688A9312399CE3013 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				B17829C38BB662781E6009E4 /* Cocoa.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		3F1C3D9291A0ABCA9A3ABF40 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -572,6 +459,22 @@
 				1BD1FA8BD4848AF07CB75904 /* Cocoa.framework in Frameworks */,
 				DF49BF1481255855F7DBBEC3 /* Cocoa.framework in Frameworks */,
 				BE4B66BCC9673A696F806630 /* libcups.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		53D6E7C92D10A5014AFBDB0D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC2644AF61F69AB834E40FD9 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		634CE06688A9312399CE3013 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B17829C38BB662781E6009E4 /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -736,6 +639,30 @@
 			path = ../AudioMonitor;
 			sourceTree = "<group>";
 		};
+		4E7506E3E2D1345416984447 /* HardwareGrowlerTests */ = {
+			isa = PBXGroup;
+			children = (
+				2DEDBEA5A592C360F312425F /* Info.plist */,
+				3DD391AB103A49025CD309B3 /* HWGrowlNetworkMonitorTests.m */,
+				A161A2F90C205C38B847FD80 /* HWGIconOverrideStoreTests.m */,
+				86A3E6AC1375FFF4C41C4FDE /* HWGNotificationHistoryStoreTests.m */,
+			);
+			name = HardwareGrowlerTests;
+			path = HardwareGrowlerTests;
+			sourceTree = "<group>";
+		};
+		750D1276C9E686F44EE08DAF /* ScannerMonitor */ = {
+			isa = PBXGroup;
+			children = (
+				52E9D97D591BA41D19882DD0 /* HWGrowlScannerMonitor.h */,
+				28836ADB028995789C65CA65 /* HWGrowlScannerMonitor.m */,
+				45360ABDDFF4F20B5892D8CC /* ScannerMonitor-Info.plist */,
+				D044D03B0DE085825AB1ED37 /* ScannerMonitor-Prefix.pch */,
+			);
+			name = ScannerMonitor;
+			path = ../ScannerMonitor;
+			sourceTree = "<group>";
+		};
 		A4B68FFFCF66FB148C664D15 /* GamepadMonitor */ = {
 			isa = PBXGroup;
 			children = (
@@ -850,6 +777,7 @@
 				BCB8076C1551A78D0088C69A /* Plugins */,
 				BCB805EA155153330088C69A /* Frameworks */,
 				BCB805E8155153330088C69A /* Products */,
+				4E7506E3E2D1345416984447 /* HardwareGrowlerTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -871,6 +799,7 @@
 				26C644079E7A4E5D14DB48FE /* GamepadMonitor.hwgrowlmonitor */,
 				002E18860471C7FA5DF3A775 /* PrinterMonitor.bundle */,
 				5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */,
+				7C184E8CEE38153E402D9A6E /* HardwareGrowlerTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -937,7 +866,6 @@
 			isa = PBXGroup;
 			children = (
 				93AD0193165BBADF005B790D /* GrowlToolChainSupport.h */,
-				BCB8065B155158DA0088C69A /* Growl.xcodeproj */,
 				BCB8060C155154B80088C69A /* Images */,
 				BC4FC622155C04B700EE65EC /* MainMenu.xib */,
 				BC4FC626155C05C700EE65EC /* Localizable.strings */,
@@ -959,28 +887,6 @@
 				BCB80613155154CA0088C69A /* menubarIcon_Selected.png */,
 			);
 			name = Images;
-			sourceTree = "<group>";
-		};
-		BCB8065C155158DA0088C69A /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				BCB8066F155158DA0088C69A /* Growl.app */,
-				BCB80671155158DA0088C69A /* GrowlLauncher.app */,
-				BCB80673155158DA0088C69A /* Growl.framework */,
-				BCB80675155158DA0088C69A /* GrowlPlugins.framework */,
-				BCB80677155158DA0088C69A /* Speech.growlView */,
-				BCB80679155158DA0088C69A /* Brushed.growlView */,
-				BCB8067B155158DA0088C69A /* Bubbles.growlView */,
-				BCB8067D155158DA0088C69A /* iCal.growlView */,
-				BCB8067F155158DA0088C69A /* Bezel.growlView */,
-				BCB80681155158DA0088C69A /* Smoke.growlView */,
-				BCB80683155158DA0088C69A /* Nano.growlView */,
-				BCB80685155158DA0088C69A /* MusicVideo.growlView */,
-				BCB80687155158DA0088C69A /* SMS.growlView */,
-				BCB80689155158DA0088C69A /* Unit tests.octest */,
-				BCB8068B155158DA0088C69A /* com.company.application.GNTPClientService.xpc */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 		BCB8069F15515A0D0088C69A /* Xcconfigs */ = {
@@ -1059,6 +965,8 @@
 				A4B68FFFCF66FB148C664D15 /* GamepadMonitor */,
 				CFBD5E6FDA8003E0A035B8D2 /* PrinterMonitor */,
 				750D1276C9E686F44EE08DAF /* ScannerMonitor */,
+				62E75064BD31B451F46030D2 /* HWGWifiSignal.h */,
+				FD09932A4B1F7E80D784BD21 /* HWGWifiSignal.m */,
 			);
 			name = Plugins;
 			path = NetworkMonitor;
@@ -1143,18 +1051,6 @@
 			path = ../PrinterMonitor;
 			sourceTree = "<group>";
 		};
-		750D1276C9E686F44EE08DAF /* ScannerMonitor */ = {
-			isa = PBXGroup;
-			children = (
-				52E9D97D591BA41D19882DD0 /* HWGrowlScannerMonitor.h */,
-				28836ADB028995789C65CA65 /* HWGrowlScannerMonitor.m */,
-				45360ABDDFF4F20B5892D8CC /* ScannerMonitor-Info.plist */,
-				D044D03B0DE085825AB1ED37 /* ScannerMonitor-Prefix.pch */,
-			);
-			name = ScannerMonitor;
-			path = ../ScannerMonitor;
-			sourceTree = "<group>";
-		};
 		D159000BD159000BD159000B /* DisplayMonitor */ = {
 			isa = PBXGroup;
 			children = (
@@ -1192,14 +1088,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		B5DD0156429ECD3997FC6E20 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				AABB00457BBB1B4C1DF230C1 /* HWGrowlScannerMonitor.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		4BFF43609C609377B4345FDC /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -1208,9 +1096,52 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B5DD0156429ECD3997FC6E20 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AABB00457BBB1B4C1DF230C1 /* HWGrowlScannerMonitor.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		2F17F961FA8BA018575DE1C0 /* HardwareGrowlerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 990F8A8CEBF9668434F0DB3D /* Build configuration list for PBXNativeTarget "HardwareGrowlerTests" */;
+			buildPhases = (
+				0E88DDA64097A65A35765181 /* Sources */,
+				53D6E7C92D10A5014AFBDB0D /* Frameworks */,
+				16ECE5C2560440FF6DE7E919 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HardwareGrowlerTests;
+			productName = HardwareGrowlerTests;
+			productReference = 7C184E8CEE38153E402D9A6E /* HardwareGrowlerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		3A7EF6544E27925EBC17DF4E /* ScannerMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 70B33F088C3045A653B79CCD /* Build configuration list for PBXNativeTarget "ScannerMonitor" */;
+			buildPhases = (
+				869D79923A08D4A86D0FD1B5 /* Sources */,
+				634CE06688A9312399CE3013 /* Frameworks */,
+				9A1ECEA1C9D2133313F04748 /* Resources */,
+				B5DD0156429ECD3997FC6E20 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ScannerMonitor;
+			productName = ScannerMonitor;
+			productReference = 5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
 		430A2DD2B8F357D36EC4FCD7 /* CameraMonitor */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AE8A74AF2FD8090D5A0D6D68 /* Build configuration list for PBXNativeTarget "CameraMonitor" */;
@@ -1327,8 +1258,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				BCB80690155158F50088C69A /* PBXTargetDependency */,
-				BCB8068E155158EF0088C69A /* PBXTargetDependency */,
 				BCAA17661557857C00D9E4ED /* PBXTargetDependency */,
 				C0FE0011C0FE0011C0FE0011 /* PBXTargetDependency */,
 				BCA26B6F15558817009C5ABC /* PBXTargetDependency */,
@@ -1434,24 +1363,6 @@
 			productReference = 002E18860471C7FA5DF3A775 /* PrinterMonitor.bundle */;
 			productType = "com.apple.product-type.bundle";
 		};
-		3A7EF6544E27925EBC17DF4E /* ScannerMonitor */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 70B33F088C3045A653B79CCD /* Build configuration list for PBXNativeTarget "ScannerMonitor" */;
-			buildPhases = (
-				869D79923A08D4A86D0FD1B5 /* Sources */,
-				634CE06688A9312399CE3013 /* Frameworks */,
-				9A1ECEA1C9D2133313F04748 /* Resources */,
-				B5DD0156429ECD3997FC6E20 /* Headers */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = ScannerMonitor;
-			productName = ScannerMonitor;
-			productReference = 5A47BEFBEF00C95059266C5D /* ScannerMonitor.bundle */;
-			productType = "com.apple.product-type.bundle";
-		};
 		D159000DD159000DD159000D /* DisplayMonitor */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D1590017D1590017D1590017 /* Build configuration list for PBXNativeTarget "DisplayMonitor" */;
@@ -1543,12 +1454,6 @@
 			mainGroup = BCB805DC155153330088C69A;
 			productRefGroup = BCB805E8155153330088C69A /* Products */;
 			projectDirPath = "";
-			projectReferences = (
-				{
-					ProductGroup = BCB8065C155158DA0088C69A /* Products */;
-					ProjectRef = BCB8065B155158DA0088C69A /* Growl.xcodeproj */;
-				},
-			);
 			projectRoot = "";
 			targets = (
 				BCB805E6155153330088C69A /* HardwareGrowler */,
@@ -1566,119 +1471,19 @@
 				8B4A3E410A1A2C8789E134DE /* GamepadMonitor */,
 				C5B823D438B01E02018E7935 /* PrinterMonitor */,
 				3A7EF6544E27925EBC17DF4E /* ScannerMonitor */,
+				2F17F961FA8BA018575DE1C0 /* HardwareGrowlerTests */,
 			);
 		};
 /* End PBXProject section */
 
-/* Begin PBXReferenceProxy section */
-		BCB8066F155158DA0088C69A /* Growl.app */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.application;
-			path = Growl.app;
-			remoteRef = BCB8066E155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB80671155158DA0088C69A /* GrowlLauncher.app */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.application;
-			path = GrowlLauncher.app;
-			remoteRef = BCB80670155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB80673155158DA0088C69A /* Growl.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = Growl.framework;
-			remoteRef = BCB80672155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB80675155158DA0088C69A /* GrowlPlugins.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = GrowlPlugins.framework;
-			remoteRef = BCB80674155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB80677155158DA0088C69A /* Speech.growlView */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = Speech.growlView;
-			remoteRef = BCB80676155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB80679155158DA0088C69A /* Brushed.growlView */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = Brushed.growlView;
-			remoteRef = BCB80678155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB8067B155158DA0088C69A /* Bubbles.growlView */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = Bubbles.growlView;
-			remoteRef = BCB8067A155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB8067D155158DA0088C69A /* iCal.growlView */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = iCal.growlView;
-			remoteRef = BCB8067C155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB8067F155158DA0088C69A /* Bezel.growlView */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = Bezel.growlView;
-			remoteRef = BCB8067E155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB80681155158DA0088C69A /* Smoke.growlView */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = Smoke.growlView;
-			remoteRef = BCB80680155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB80683155158DA0088C69A /* Nano.growlView */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = Nano.growlView;
-			remoteRef = BCB80682155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB80685155158DA0088C69A /* MusicVideo.growlView */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = MusicVideo.growlView;
-			remoteRef = BCB80684155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB80687155158DA0088C69A /* SMS.growlView */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = SMS.growlView;
-			remoteRef = BCB80686155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB80689155158DA0088C69A /* Unit tests.octest */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = "Unit tests.octest";
-			remoteRef = BCB80688155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		BCB8068B155158DA0088C69A /* com.company.application.GNTPClientService.xpc */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = com.company.application.GNTPClientService.xpc;
-			remoteRef = BCB8068A155158DA0088C69A /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-/* End PBXReferenceProxy section */
-
 /* Begin PBXResourcesBuildPhase section */
+		16ECE5C2560440FF6DE7E919 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2DD02C066145C0E957CA25A6 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1833,6 +1638,19 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		0E88DDA64097A65A35765181 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				93A6633C4A6E84DA466A76BB /* HWGrowlNetworkMonitorTests.m in Sources */,
+				393ADA9DA7AABA50B0A16FB6 /* HWGIconOverrideStoreTests.m in Sources */,
+				A1436E0A120C12B539E215CD /* HWGNotificationHistoryStoreTests.m in Sources */,
+				A82344B6B977E2C68D91DD9E /* HWGWifiSignal.m in Sources */,
+				B3EAB3FA642D7DE84B6D8B5F /* HWGIconOverrideStore.m in Sources */,
+				69DE294A05B3AA7D73D43557 /* HWGNotificationHistoryStore.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6C0A04525BCCADED67AA2DAA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1840,6 +1658,16 @@
 				B571587085B3695D11DFFFBF /* HWGrowlAudioMonitor.m in Sources */,
 				4A24F910DB8D388BA641520C /* HWGIconOverrideStore.m in Sources */,
 				85FE089FE8189CFA9518ADBA /* HWGIconPickerView.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		869D79923A08D4A86D0FD1B5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC05D72AFBCEB310073A7E78 /* HWGrowlScannerMonitor.m in Sources */,
+				1B2F8D7B1479814F3AA17694 /* HWGIconOverrideStore.m in Sources */,
+				CB3272AB4F3EF8A299782D73 /* HWGIconPickerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1919,6 +1747,7 @@
 				BCECA36B1552D24C00F49280 /* GrowlNetworkUtilities.m in Sources */,
 				A7A1751089FA371795A56E89 /* HWGIconOverrideStore.m in Sources */,
 				E874E7781672A90F495BDDEE /* HWGIconPickerView.m in Sources */,
+				D0183CB4660A1D66320A5089 /* HWGWifiSignal.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1982,16 +1811,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		869D79923A08D4A86D0FD1B5 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				AC05D72AFBCEB310073A7E78 /* HWGrowlScannerMonitor.m in Sources */,
-				1B2F8D7B1479814F3AA17694 /* HWGIconOverrideStore.m in Sources */,
-				CB3272AB4F3EF8A299782D73 /* HWGIconPickerView.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -2013,17 +1832,17 @@
 			target = C5B823D438B01E02018E7935 /* PrinterMonitor */;
 			targetProxy = C3D01FED7FDF6356A92D1FC2 /* PBXContainerItemProxy */;
 		};
-		390C968D7B7E395C8EB42BDF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = ScannerMonitor;
-			target = 3A7EF6544E27925EBC17DF4E /* ScannerMonitor */;
-			targetProxy = BEA81CB46BD3E60746D96890 /* PBXContainerItemProxy */;
-		};
 		1E03BA9B5D8196E2C78ED79B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = AudioMonitor;
 			target = FF1763C8D3CAB315AEFE93CA /* AudioMonitor */;
 			targetProxy = 889B64D2D9AAAB7B27819FAE /* PBXContainerItemProxy */;
+		};
+		390C968D7B7E395C8EB42BDF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = ScannerMonitor;
+			target = 3A7EF6544E27925EBC17DF4E /* ScannerMonitor */;
+			targetProxy = BEA81CB46BD3E60746D96890 /* PBXContainerItemProxy */;
 		};
 		BC523C3315556B4500548427 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2039,16 +1858,6 @@
 			isa = PBXTargetDependency;
 			target = BCA26BB21555BB1A009C5ABC /* PowerMonitor */;
 			targetProxy = BCAA17651557857C00D9E4ED /* PBXContainerItemProxy */;
-		};
-		BCB8068E155158EF0088C69A /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = GNTPClientService;
-			targetProxy = BCB8068D155158EF0088C69A /* PBXContainerItemProxy */;
-		};
-		BCB80690155158F50088C69A /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = Growl.framework;
-			targetProxy = BCB8068F155158F50088C69A /* PBXContainerItemProxy */;
 		};
 		BCB807651551A6F10088C69A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2193,57 +2002,6 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		362863A62C8F0A5BA61BF5B1 /* Release */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = BC3530B1155C1402005D2EA2 /* Release.xcconfig */;
-			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "ScannerMonitor/ScannerMonitor-Prefix.pch";
-				INFOPLIST_FILE = "ScannerMonitor/ScannerMonitor-Info.plist";
-				INFOPLIST_PREFIX_HEADER = "";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.ScannerMonitor;
-				PRODUCT_NAME = ScannerMonitor;
-				WRAPPER_EXTENSION = hwgrowlmonitor;
-			};
-			name = Release;
-		};
-		734DFF1E8CF4F945AFB05A30 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = BC3530AF155C1402005D2EA2 /* Debug.xcconfig */;
-			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "ScannerMonitor/ScannerMonitor-Prefix.pch";
-				INFOPLIST_FILE = "ScannerMonitor/ScannerMonitor-Info.plist";
-				INFOPLIST_PREFIX_HEADER = "";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.ScannerMonitor;
-				PRODUCT_NAME = ScannerMonitor;
-				WRAPPER_EXTENSION = hwgrowlmonitor;
-			};
-			name = Debug;
-		};
-		71A7E73848EBC08B8F1A66D3 /* Localization */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = BC3530B0155C1402005D2EA2 /* Localization.xcconfig */;
-			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "ScannerMonitor/ScannerMonitor-Prefix.pch";
-				INFOPLIST_FILE = "ScannerMonitor/ScannerMonitor-Info.plist";
-				INFOPLIST_PREFIX_HEADER = "";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.ScannerMonitor;
-				PRODUCT_NAME = ScannerMonitor;
-				WRAPPER_EXTENSION = hwgrowlmonitor;
-			};
-			name = Localization;
-		};
 		05FDF3C2AD73F1CD6A215787 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC3530B1155C1402005D2EA2 /* Release.xcconfig */;
@@ -2278,6 +2036,27 @@
 			};
 			name = Release;
 		};
+		1DA2872A3A97ECBF721A2BD9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/NetworkMonitor",
+					"$(SRCROOT)/HardwareGrowler",
+				);
+				INFOPLIST_FILE = HardwareGrowlerTests/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
 		344038FCBD4733AE635DD554 /* Localization */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC3530B0155C1402005D2EA2 /* Localization.xcconfig */;
@@ -2295,6 +2074,23 @@
 			};
 			name = Localization;
 		};
+		362863A62C8F0A5BA61BF5B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B1155C1402005D2EA2 /* Release.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "ScannerMonitor/ScannerMonitor-Prefix.pch";
+				INFOPLIST_FILE = "ScannerMonitor/ScannerMonitor-Info.plist";
+				INFOPLIST_PREFIX_HEADER = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.ScannerMonitor;
+				PRODUCT_NAME = ScannerMonitor;
+				WRAPPER_EXTENSION = hwgrowlmonitor;
+			};
+			name = Release;
+		};
 		3E8E0E5B37ED5178F42E0F40 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC3530AF155C1402005D2EA2 /* Debug.xcconfig */;
@@ -2308,6 +2104,40 @@
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.CameraMonitor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = hwgrowlmonitor;
+			};
+			name = Debug;
+		};
+		71A7E73848EBC08B8F1A66D3 /* Localization */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530B0155C1402005D2EA2 /* Localization.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "ScannerMonitor/ScannerMonitor-Prefix.pch";
+				INFOPLIST_FILE = "ScannerMonitor/ScannerMonitor-Info.plist";
+				INFOPLIST_PREFIX_HEADER = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.ScannerMonitor;
+				PRODUCT_NAME = ScannerMonitor;
+				WRAPPER_EXTENSION = hwgrowlmonitor;
+			};
+			name = Localization;
+		};
+		734DFF1E8CF4F945AFB05A30 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BC3530AF155C1402005D2EA2 /* Debug.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "ScannerMonitor/ScannerMonitor-Prefix.pch";
+				INFOPLIST_FILE = "ScannerMonitor/ScannerMonitor-Info.plist";
+				INFOPLIST_PREFIX_HEADER = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.ScannerMonitor;
+				PRODUCT_NAME = ScannerMonitor;
 				WRAPPER_EXTENSION = hwgrowlmonitor;
 			};
 			name = Debug;
@@ -2328,6 +2158,27 @@
 				WRAPPER_EXTENSION = hwgrowlmonitor;
 			};
 			name = Localization;
+		};
+		8C9A6BA5EF9A105C0387DEDC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/NetworkMonitor",
+					"$(SRCROOT)/HardwareGrowler",
+				);
+				INFOPLIST_FILE = HardwareGrowlerTests/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
 		};
 		8EF6BEFA3B25CC8E9AC65617 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -3046,6 +2897,27 @@
 			};
 			name = Release;
 		};
+		DC7D0308088D66FF3790054E /* Localization */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/NetworkMonitor",
+					"$(SRCROOT)/HardwareGrowler",
+				);
+				INFOPLIST_FILE = HardwareGrowlerTests/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jensyleo.hg4mac.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Localization;
+		};
 		DE2D845E04E107E5695220A8 /* Localization */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BC3530B0155C1402005D2EA2 /* Localization.xcconfig */;
@@ -3100,16 +2972,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		70B33F088C3045A653B79CCD /* Build configuration list for PBXNativeTarget "ScannerMonitor" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				362863A62C8F0A5BA61BF5B1 /* Release */,
-				734DFF1E8CF4F945AFB05A30 /* Debug */,
-				71A7E73848EBC08B8F1A66D3 /* Localization */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		1187E5F8DE7C7FD4248D7E44 /* Build configuration list for PBXNativeTarget "AudioMonitor" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -3126,6 +2988,26 @@
 				C596CF12353B7F7777BE18BF /* Release */,
 				A544A5A6FAA99AF6995DDDE9 /* Debug */,
 				DE2D845E04E107E5695220A8 /* Localization */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		70B33F088C3045A653B79CCD /* Build configuration list for PBXNativeTarget "ScannerMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				362863A62C8F0A5BA61BF5B1 /* Release */,
+				734DFF1E8CF4F945AFB05A30 /* Debug */,
+				71A7E73848EBC08B8F1A66D3 /* Localization */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		990F8A8CEBF9668434F0DB3D /* Build configuration list for PBXNativeTarget "HardwareGrowlerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8C9A6BA5EF9A105C0387DEDC /* Release */,
+				1DA2872A3A97ECBF721A2BD9 /* Debug */,
+				DC7D0308088D66FF3790054E /* Localization */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

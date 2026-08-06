@@ -39,7 +39,23 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 
 @property (nonatomic, weak) id<HWGrowlPluginControllerProtocol> delegate;
 @property (nonatomic, strong) NSView *prefsView;
-@property (nonatomic, strong) NSMutableSet<NSString *> *runningCameraUIDs;   // cameras currently "in use" (any app)
+@property (nonatomic, strong) NSMutableSet<NSString *> *runningCameraUIDs;   // cameras currently "in use" (any app) — raw, updated every callback
+// BUG FIX (06-ago-2026): confirmed live (user screenshot showing Started -> Stopped -> Started
+// for a single camera activation) that opening a video call briefly cycles CoreMediaIO's
+// kCMIODevicePropertyDeviceIsRunningSomewhere itself during stream setup — the same class of
+// flicker Audio Monitor's microphone "in use" signal has (see that file's 05-ago-2026 fix).
+// `lastNotifiedCameraUIDs` is the notified baseline (what the user was actually last told).
+//
+// BUG FIX (06-ago-2026, follow-up): a plain trailing debounce (delay EVERY notification by
+// kCameraInUseDebounceInterval, like Audio Monitor's mic fix) made "Started" itself feel
+// laggy — confirmed by user feedback ("la notificacion esta lenta, antes no era asi") — even
+// though "Started" was never the flickery half of the burst. Only "Stopped" needs the wait
+// (to see whether it's genuine or the device is about to flicker back on): "Started" now
+// fires the instant it's first observed, matching pre-fix responsiveness, while each stopped
+// UID gets its OWN delayed re-check in `pendingStopBlocksByUID`, cancelled if that same UID
+// shows up running again before it fires.
+@property (nonatomic, strong) NSMutableSet<NSString *> *lastNotifiedCameraUIDs;
+@property (nonatomic, strong) NSMutableDictionary<NSString *, dispatch_block_t> *pendingStopBlocksByUID;
 // MUST be `copy`, not `assign` — `assign` doesn't trigger ARC's copy-to-heap for block
 // literals, so the block stays STACK-allocated and becomes a dangling pointer the moment
 // -init's stack frame returns. Every later use (any subsequent CMIOObjectAddPropertyListenerBlock/
@@ -64,14 +80,20 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 @synthesize delegate;
 @synthesize prefsView;
 @synthesize runningCameraUIDs;
+@synthesize lastNotifiedCameraUIDs;
+@synthesize pendingStopBlocksByUID;
 @synthesize inUseListenerBlock;
 @synthesize deviceListChangedBlock;
 @synthesize deviceIDsWithInUseListener;
+
+static const NSTimeInterval kCameraInUseDebounceInterval = 1.0;
 
 -(id)init {
 	self = [super init];
 	if (self) {
 		runningCameraUIDs = [NSMutableSet set];
+		lastNotifiedCameraUIDs = [NSMutableSet set];
+		pendingStopBlocksByUID = [NSMutableDictionary dictionary];
 		deviceIDsWithInUseListener = [NSMutableSet set];
 
 		[[NSNotificationCenter defaultCenter] addObserver:self
@@ -121,6 +143,7 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 
 -(void)dealloc {
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
+	for (dispatch_block_t block in pendingStopBlocksByUID.allValues) dispatch_block_cancel(block);
 	[self unregisterInUseListeners];
 	if (deviceListChangedBlock) {
 		CMIOObjectPropertyAddress devicesAddress = { kCMIOHardwarePropertyDevices, kCMIOObjectPropertyScopeGlobal, kCMIOObjectPropertyElementMain };
@@ -181,6 +204,12 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 	if ([self transportAlreadyCoveredByAnotherMonitor:device.transportType]) return;
 
 	[runningCameraUIDs removeObject:device.uniqueID];
+	[lastNotifiedCameraUIDs removeObject:device.uniqueID];   // avoid a stray "stopped" once the debounce settles
+	dispatch_block_t pendingStop = pendingStopBlocksByUID[device.uniqueID];
+	if (pendingStop) {
+		dispatch_block_cancel(pendingStop);
+		[pendingStopBlocksByUID removeObjectForKey:device.uniqueID];
+	}
 	[delegate notifyWithName:@"CameraDisconnected"
 						 title:NSLocalizedString(@"Camera Disconnected", @"")
 					   description:device.localizedName
@@ -264,39 +293,93 @@ static BOOL HWGCameraBoolForKey(NSString *key, BOOL def) {
 	[deviceIDsWithInUseListener removeAllObjects];
 }
 
+// Recomputes which cameras are currently "in use". "Started" fires the instant it's first
+// observed — no delay, matching pre-fix responsiveness, since that's the privacy-relevant
+// signal users watch for and it was never the flickery half of the CMIO burst. "Stopped" is
+// held for `kCameraInUseDebounceInterval` before being believed, so a camera that flickers
+// off and immediately back on (see the 06-ago-2026 fix note above) never gets a spurious
+// Stopped/Started pair — only a genuine, held-stable stop is announced.
+// `shouldNotify:NO` is used only for the initial silent baseline (at launch) — same pattern
+// as every other monitor's baseline-then-live-diff approach.
 -(void)refreshRunningStateForAllDevicesNotifying:(BOOL)shouldNotify {
-	BOOL wantsInUse = HWGCameraBoolForKey(HWG_CAMERA_NOTIFY_IN_USE_KEY, YES);
+	NSMutableSet<NSString *> *currentlyRunning = [NSMutableSet set];
 	for (NSNumber *deviceIDNumber in [self allCMIODeviceIDs]) {
 		CMIODeviceID deviceID = [deviceIDNumber unsignedIntValue];
 		NSString *uid = [self uidForCMIODevice:deviceID];
 		if (!uid) continue;
-		BOOL nowRunning = [self isCMIODeviceRunningSomewhere:deviceID];
-		BOOL wasRunning = [runningCameraUIDs containsObject:uid];
-		if (nowRunning == wasRunning) continue;
-
-		if (nowRunning) [runningCameraUIDs addObject:uid]; else [runningCameraUIDs removeObject:uid];
-		if (!shouldNotify || !wantsInUse) continue;
-		NSString *rowKey = nowRunning ? HWG_CAMERA_NOTIFY_INUSE_ROW_KEY : HWG_CAMERA_NOTIFY_IDLE_ROW_KEY;
-		if (!HWGCameraBoolForKey(rowKey, YES)) continue;
-
-		AVCaptureDevice *device = [AVCaptureDevice deviceWithUniqueID:uid];
-		NSString *name = device.localizedName ?: NSLocalizedString(@"Camera", @"");
-		// BUG FIX (05-ago-2026): Started/Stopped used to share ONE identifierString per
-		// device — confirmed live (user testing rapid on/off toggling) that this made
-		// UNUserNotificationCenter treat the second notification as an update to the still-
-		// displayed first one (same request identifier = same notification slot) instead of
-		// a fresh banner, so "Stopped" silently didn't appear until "Started" had already
-		// cleared. Appending the state makes each transition its own request identifier —
-		// connect/disconnect notifications elsewhere intentionally keep a stable per-device
-		// identifier for bounce-detection continuity, this is deliberately different from that.
-		[delegate notifyWithName:@"CameraInUseChanged"
-							 title:nowRunning ? NSLocalizedString(@"Camera Started Being Used", @"") : NSLocalizedString(@"Camera Stopped Being Used", @"")
-						   description:name
-							  icon:[self iconDataInUse:nowRunning]
-					  identifierString:[NSString stringWithFormat:@"HWGrowlCameraInUse-%@-%@", uid, nowRunning ? @"started" : @"stopped"]
-						 contextString:nil
-								plugin:self];
+		if ([self isCMIODeviceRunningSomewhere:deviceID]) [currentlyRunning addObject:uid];
 	}
+	self.runningCameraUIDs = currentlyRunning;
+
+	if (!shouldNotify) {
+		// Silent baseline (launch) — this IS the notified baseline going forward.
+		self.lastNotifiedCameraUIDs = [currentlyRunning mutableCopy];
+		return;
+	}
+
+	BOOL wantsInUse = HWGCameraBoolForKey(HWG_CAMERA_NOTIFY_IN_USE_KEY, YES);
+
+	// A UID running again cancels its pending "stopped" re-check — it never really stopped
+	// from the user's perspective (they were already told "Started" and nothing since
+	// contradicted that), so there's nothing new to announce.
+	for (NSString *uid in currentlyRunning) {
+		dispatch_block_t pendingStop = self.pendingStopBlocksByUID[uid];
+		if (pendingStop) {
+			dispatch_block_cancel(pendingStop);
+			[self.pendingStopBlocksByUID removeObjectForKey:uid];
+		}
+	}
+
+	// Genuinely new starts (not already-notified, no cancelled-pending-stop above implies this
+	// is really new — a UID with a pending stop stays in lastNotifiedCameraUIDs throughout, so
+	// it's excluded here already) get announced immediately.
+	for (NSString *uid in currentlyRunning) {
+		if ([self.lastNotifiedCameraUIDs containsObject:uid]) continue;
+		if (wantsInUse) [self notifyCameraInUseChangedForUID:uid running:YES];
+		[self.lastNotifiedCameraUIDs addObject:uid];
+	}
+
+	// UIDs that just dropped out get a delayed re-check rather than an immediate "Stopped" —
+	// skip any that already have one scheduled from an earlier drop in this same burst.
+	NSMutableSet<NSString *> *droppedOut = [self.lastNotifiedCameraUIDs mutableCopy];
+	[droppedOut minusSet:currentlyRunning];
+	__weak typeof(self) weakSelf = self;
+	for (NSString *uid in droppedOut) {
+		if (self.pendingStopBlocksByUID[uid]) continue;
+		dispatch_block_t stopBlock = dispatch_block_create(0, ^{
+			typeof(self) strongSelf = weakSelf;
+			if (!strongSelf) return;
+			if (![strongSelf.runningCameraUIDs containsObject:uid]) {
+				if (HWGCameraBoolForKey(HWG_CAMERA_NOTIFY_IN_USE_KEY, YES)) {
+					[strongSelf notifyCameraInUseChangedForUID:uid running:NO];
+				}
+				[strongSelf.lastNotifiedCameraUIDs removeObject:uid];
+			}
+			[strongSelf.pendingStopBlocksByUID removeObjectForKey:uid];
+		});
+		self.pendingStopBlocksByUID[uid] = stopBlock;
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kCameraInUseDebounceInterval * NSEC_PER_SEC)),
+		               dispatch_get_main_queue(), stopBlock);
+	}
+}
+
+-(void)notifyCameraInUseChangedForUID:(NSString *)uid running:(BOOL)nowRunning {
+	NSString *rowKey = nowRunning ? HWG_CAMERA_NOTIFY_INUSE_ROW_KEY : HWG_CAMERA_NOTIFY_IDLE_ROW_KEY;
+	if (!HWGCameraBoolForKey(rowKey, YES)) return;
+
+	AVCaptureDevice *device = [AVCaptureDevice deviceWithUniqueID:uid];
+	NSString *name = device.localizedName ?: NSLocalizedString(@"Camera", @"");
+	// Started/Stopped use a distinct identifierString per transition (not just per device) —
+	// see F19/05-ago-2026 note: a stable per-device identifier would make
+	// UNUserNotificationCenter treat "Stopped" as an update to the still-displayed "Started"
+	// banner instead of a fresh one.
+	[delegate notifyWithName:@"CameraInUseChanged"
+						 title:nowRunning ? NSLocalizedString(@"Camera Started Being Used", @"") : NSLocalizedString(@"Camera Stopped Being Used", @"")
+					   description:name
+						  icon:[self iconDataInUse:nowRunning]
+				  identifierString:[NSString stringWithFormat:@"HWGrowlCameraInUse-%@-%@", uid, nowRunning ? @"started" : @"stopped"]
+					 contextString:nil
+							plugin:self];
 }
 
 #pragma mark Icon

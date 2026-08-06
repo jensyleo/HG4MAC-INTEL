@@ -118,8 +118,7 @@ open /Applications/HG4MAC.app
 ```
 
 > You can also open `HardwareGrowler.xcodeproj` in Xcode and build the `HardwareGrowler`
-> scheme. The app and its monitor plugins are bundled together; HardwareGrowler is one
-> target within the larger Growl source tree this repo descends from.
+> scheme. The app and its monitor plugins are bundled together.
 
 ## Known limitations
 
@@ -401,14 +400,18 @@ limitation, not something HG4MAC's uninstaller can work around.
 
 ## Project layout
 
-This repository is the Growl source tree; the modernized app lives in:
+This started as a fork of the Growl source tree, but the legacy Growl framework, its GNTP
+XPC service, and every unused legacy source file have since been removed — only the small
+handful of legacy files the app actually uses remain (see `Core/Source/`, `Common/Source/`,
+`GrowlStub/`, `external_dependencies/`). The app itself lives in:
 
 ```
 HardwareGrowler/            app delegate, main menu, status item, prefs window
 GrowlStub/                  custom notification banner (GrowlApplicationBridge)
-BluetoothMonitor/ NetworkMonitor/ PowerMonitor/ ThermalMonitor/ ThunderboltMonitor/
-USBMonitor/ VolumeMonitor/
-                            the seven monitor plugins (.hwgrowlmonitor bundles)
+AudioMonitor/ BluetoothMonitor/ CameraMonitor/ DisplayMonitor/ GamepadMonitor/
+NetworkMonitor/ PowerMonitor/ PrinterMonitor/ ScannerMonitor/ ThermalMonitor/
+ThunderboltMonitor/ USBMonitor/ VolumeMonitor/
+                            the thirteen monitor plugins (.hwgrowlmonitor / .bundle)
 Resources/Assets.xcassets/  notification & preference icons
 HardwareGrowler.xcodeproj/  the Xcode project
 ```

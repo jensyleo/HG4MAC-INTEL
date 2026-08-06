@@ -4,6 +4,78 @@ All notable changes made in this fork on top of
 [`pranav-prakash/HardwareGrowler-NC`](https://github.com/pranav-prakash/HardwareGrowler-NC).
 Target: **macOS 13+**, developed/tested on **macOS 26 (Tahoe), Apple Silicon (M-series)**.
 
+## v1.10.4 — 2026-08-06
+
+### Added: first automated test target (HardwareGrowlerTests)
+- HG4MAC had zero automated tests until now — everything was verified live (build, install,
+  launch, screenshot). Added a standalone XCTest unit test target with 12 tests covering the
+  logic that's safely testable without hardware or destructive side effects:
+  - `HWGWifiBarsForRSSI` (Wi-Fi signal → bar-level mapping, all 5 tiers + boundaries) — this
+    pure function was extracted out of Network Monitor into its own file
+    (`NetworkMonitor/HWGWifiSignal.h/.m`) specifically so it could be tested without pulling
+    in CoreWLAN/CoreLocation. Network Monitor now calls this instead of its old private method
+    (no behavior change).
+  - `HWGIconOverrideStore` round-trip (set/has/remove/resolve), using a fixture name that
+    doesn't correspond to any real icon and is cleaned up in setUp/tearDown so the test can
+    never leave a stray override in the user's real Application Support data.
+  - `HWGNotificationHistoryStore`, read-only only — there's no per-entry removal API (only
+    `pruneOlderThanDays:`/`clearAll`, both of which operate on the user's real history), so
+    testing `addEntry` would either pollute or risk destroying real data. Left as a known gap
+    until the store gains a safe way to remove a single test entry.
+  - Deliberately NOT covered yet: the dedup/bounce-detection logic in
+    `HWGrowlPluginController`, and the per-monitor debounce logic (camera/mic in-use) — both
+    are embedded inline in larger methods rather than separable pure functions; extracting them
+    for testability is future work, not part of this initial pass.
+- Runs standalone (no host application) via `xcodebuild test -scheme HardwareGrowler
+  -only-testing:HardwareGrowlerTests` — avoids this project's ad-hoc-signing friction with
+  Xcode's host-app test injection, and means running tests never launches a second real
+  instance of the app alongside one the user already has running.
+
+## v1.10.3 — 2026-08-06
+
+### Improved: camera "in use" notification responsiveness
+- v1.10.2's debounce for the camera "Started/Stopped Being Used" notifications (to prevent
+  CoreMediaIO flicker artifacts during video call setup) applied a blanket 1-second delay to
+  all notifications, making even the "Started" signal feel laggy — confirmed by user feedback.
+  The flicker only happens on "Stopped" (the camera briefly reports "off" then "on" again),
+  so redesigned the debounce to be asymmetric: "Started" fires instantly (no delay), while
+  each "Stopped" gets its own 1-second settle check that cancels if the camera shows running
+  again before it fires. This restores pre-fix responsiveness for the privacy-relevant
+  "Started" signal while still suppressing spurious "Stopped" from the CMIO burst.
+
+## v1.10.2 — 2026-08-06
+
+### Fixed: Wi-Fi not announced at launch
+- Network Monitor's "already connected" Wi-Fi announcement at launch was querying
+  `CWWiFiClient` synchronously in the same run-loop tick as app startup. CoreWLAN's XPC
+  connection to the system Wi-Fi daemon isn't always warm that early, so the read could
+  come back as "not associated" even when Wi-Fi was already connected — and since no
+  CoreWLAN change event ever fires for a connection that was already up before launch,
+  that false read meant Wi-Fi silently never got announced for the rest of the session.
+  Now delayed by 1.5s with one retry, matching the wait-and-recheck pattern already used
+  elsewhere in this file for late-arriving IPv4 addresses.
+- Audited the other two modules that also announce state at launch (Power Monitor,
+  Volume Monitor): both read from sources with no comparable daemon warm-up (IOKit power
+  sources, NSFileManager's mounted-volume list) and aren't affected by this class of bug.
+
+## v1.10.1 — 2026-08-06
+
+### Internal: dead code removal (no functional change)
+- Removed `Growl.framework` and `GNTPClientService` as build dependencies of the app
+  target — both compiled on every build but were never embedded or linked into the app
+  (empty "Copy Frameworks" phase, no XPC copy phase, zero runtime references). The app's
+  actual notification delivery has used its own `GrowlApplicationBridge` copy since
+  earlier in this fork.
+- Removed the entire `Growl.xcodeproj` cross-project reference, along with `Framework/`,
+  `XPC/`, `Plugins/`, `GrowlLauncher/`, and `Unit tests/` — none of it was reachable from
+  the app's build graph.
+- Pruned `Core/Source/` and `Common/Source/` down to only the handful of legacy files the
+  app actually compiles or imports (traced by following the real `#import` chain), removing
+  168 unused files left over from the original Growl preferences UI, ticket database, and
+  GNTP forwarder/subscription code.
+- Verified with a full clean build after each step; the resulting `.app` bundle is
+  byte-identical to the pre-cleanup build.
+
 ## v1.10.0 — 2026-08-05
 
 ### Added: scan job start/finish notifications (experimental)

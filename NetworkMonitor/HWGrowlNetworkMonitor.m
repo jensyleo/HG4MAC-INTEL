@@ -8,6 +8,7 @@
 
 // compile with ARC: -fobjc-arc
 #import "HWGrowlNetworkMonitor.h"
+#import "HWGWifiSignal.h"
 #import "GrowlNetworkUtilities.h"
 #import "HWGIconOverrideStore.h"
 #import "HWGIconPickerView.h"
@@ -349,7 +350,7 @@ typedef enum {
 		// real change takes two full poll intervals (one just to baseline, one to
 		// compare) instead of one.
 		NSInteger rssiNow = [iface rssiValue];
-		self.lastReportedWifiBars = (rssiNow != 0) ? [self wifiBarsForRSSI:rssiNow] : -1;
+		self.lastReportedWifiBars = (rssiNow != 0) ? HWGWifiBarsForRSSI(rssiNow) : -1;
 		NSData *bssidData = nil;
 		if (bssidStr) {
 			unsigned int b[6] = {0};
@@ -434,7 +435,7 @@ typedef enum {
 	NSInteger rssi = [iface rssiValue];
 	if (rssi == 0) return;
 
-	NSInteger bars = [self wifiBarsForRSSI:rssi];
+	NSInteger bars = HWGWifiBarsForRSSI(rssi);
 
 	if (lastReportedWifiBars < 0) {   // first sample after connect → baseline, don't notify
 		self.lastReportedWifiBars = bars;
@@ -480,17 +481,35 @@ typedef enum {
 
 -(void)fireOnLaunchNotes {
 	[self interateInterfaces];
-	[self fireCurrentWiFiState];
+	// BUG FIX (06-ago-2026): CWWiFiClient's XPC connection to the system WiFi daemon isn't
+	// always warm yet this early in process launch — querying it synchronously right here
+	// (same run-loop tick as -init) can read the interface as "not associated" even when
+	// WiFi is already connected. Since no CoreWLAN change event ever fires for a connection
+	// that was already up before launch, that false read meant WiFi silently never got
+	// announced at all for the rest of the session. Give CoreWLAN a moment to settle, with
+	// one retry in case the first attempt is still too early.
+	[self fireCurrentWiFiStateRetrying:YES];
 }
 
 // At launch (only called when "Show existing" is enabled), announce the WiFi we're
 // ALREADY connected to. CoreWLAN only delivers CHANGE events, so an already-up
 // connection would otherwise never be reported — unlike volumes / IP, which do
 // report at launch. startWiFiMonitoring only records lastReportedSSID silently.
--(void)fireCurrentWiFiState {
+-(void)fireCurrentWiFiStateRetrying:(BOOL)shouldRetry {
+	__weak HWGrowlNetworkMonitor *blockSelf = self;
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+	               dispatch_get_main_queue(), ^{
+		BOOL reported = [blockSelf fireCurrentWiFiState];
+		if (!reported && shouldRetry) {
+			[blockSelf fireCurrentWiFiStateRetrying:NO];
+		}
+	});
+}
+
+-(BOOL)fireCurrentWiFiState {
 	CWInterface *iface = [self.wifiClient interface];
 	if (!(iface && [iface powerOn] && [iface interfaceMode] == kCWInterfaceModeStation))
-		return;
+		return NO;
 
 	NSString *ssid        = [iface ssid];   // nil if Location permission denied
 	NSString *displayName = ssid ?: NSLocalizedString(@"Wi-Fi", @"");
@@ -507,6 +526,7 @@ typedef enum {
 	}
 	self.lastReportedSSID = displayName;
 	[self airportConnected:displayName bssid:bssidData];
+	return YES;
 }
 
 -(void)setupDynamicStore
@@ -700,22 +720,11 @@ typedef enum {
 							plugin:self];
 }
 
-// Map a Wi-Fi RSSI (dBm — negative, closer to 0 is stronger) to a bar level 0–4.
-// rssi == 0 means "unavailable" → level 0 (the all-gray "no signal" icon).
--(NSInteger)wifiBarsForRSSI:(NSInteger)rssi {
-	if (rssi == 0)        return 0;   // unavailable → gray "no signal" (Network-Wifi-0)
-	else if (rssi >= -55) return 4;
-	else if (rssi >= -65) return 3;
-	else if (rssi >= -73) return 2;
-	else if (rssi >= -80) return 1;
-	else                  return 0;
-}
-
 // Icon name for the current signal. rssiValue does NOT require Location permission.
 -(NSString*)wifiIconNameForCurrentSignal {
 	CWInterface *iface = [self.wifiClient interface];
 	NSInteger rssi = iface ? [iface rssiValue] : 0;
-	return [NSString stringWithFormat:@"Network-Wifi-%ld", (long)[self wifiBarsForRSSI:rssi]];
+	return [NSString stringWithFormat:@"Network-Wifi-%ld", (long)HWGWifiBarsForRSSI(rssi)];
 }
 
 // F33: generic reader for a per-field visibility toggle, defaulting to `def` when unset.
